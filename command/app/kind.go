@@ -2,16 +2,17 @@ package app
 
 import (
 	"log"
-	"os"
-
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"strings"
 
 	"kube-helper/util"
+
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
+	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 )
 
-func createKind(kubernetesNamespace string) {
-	fileContent, _, err := universalDecoder.Decode(getFileContent(tmpSplitFile), nil, nil)
+func createKind(kubernetesNamespace string, fileLines []string) {
+	fileContent, _, err := universalDecoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
 	util.CheckError(err)
 	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
 	case "Secret":
@@ -24,10 +25,20 @@ func createKind(kubernetesNamespace string) {
 		createDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
 	case "Ingress":
 		createIngress(kubernetesNamespace, fileContent.(*v1beta1.Ingress))
+	case "CronJob":
+		createCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
 	default:
 		log.Panicf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind)
 	}
-	os.Remove(tmpSplitFile)
+}
+
+func createCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) {
+
+	_, err := clientset.CronJobs(kubernetesNamespace).Create(cronJob)
+
+	util.CheckError(err)
+
+	log.Printf("CronJob \"%s\" was generated\n", cronJob.ObjectMeta.Name)
 }
 
 func createDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) {
@@ -72,8 +83,8 @@ func createConfigMap(kubernetesNamespace string, configMap *v1.ConfigMap) {
 	log.Printf("ConfigMap \"%s\" was generated\n", configMap.ObjectMeta.Name)
 }
 
-func updateKind(kubernetesNamespace string) {
-	fileContent, _, err := universalDecoder.Decode(getFileContent(tmpSplitFile), nil, nil)
+func updateKind(kubernetesNamespace string, fileLines []string) {
+	fileContent, _, err := universalDecoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
 	util.CheckError(err)
 	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
 	case "Secret":
@@ -86,10 +97,26 @@ func updateKind(kubernetesNamespace string) {
 		updateDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
 	case "Ingress":
 		log.Print("Ingress update is not supported.")
+	case "CronJob":
+		updateCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
 	default:
 		log.Panicf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind)
 	}
-	os.Remove(tmpSplitFile)
+}
+
+func updateCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) {
+
+	_, err := clientset.CronJobs(kubernetesNamespace).Get(cronJob.Name)
+
+	if err != nil {
+		err = nil
+		_, err = clientset.CronJobs(kubernetesNamespace).Create(cronJob)
+	}
+	_, err = clientset.CronJobs(kubernetesNamespace).Update(cronJob)
+
+	util.CheckError(err)
+
+	log.Printf("CronJob \"%s\" was updated\n", cronJob.ObjectMeta.Name)
 }
 
 func updateDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) {

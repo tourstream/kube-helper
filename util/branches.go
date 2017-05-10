@@ -1,43 +1,59 @@
 package util
 
 import (
-  "bufio"
-  "fmt"
-  "os"
-  "os/exec"
-  "strings"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+
+	"golang.org/x/oauth2/clientcredentials"
 )
 
+type Branch struct {
+	Name string `json:"name"`
+}
 
-func GetBranches(repoURL string) []string {
-  cmd := exec.Command("git", "ls-remote", "--heads", repoURL)
-  cmdReader, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error creating StdoutPipe for Cmd", err)
-		os.Exit(1)
+type BranchesCollection struct {
+	Next     string   `json:"next"`
+	Branches []Branch `json:"values"`
+}
+
+func GetBranches(bitbucket Bitbucket) ([]string, error) {
+
+	ctx := context.Background()
+	conf := &clientcredentials.Config{
+		ClientID:     bitbucket.ClientID,
+		ClientSecret: bitbucket.ClientSecret,
+		Scopes:       []string{"repository"},
+		TokenURL:     bitbucket.TokenUrl,
 	}
 
-  var branches []string
+	client := conf.Client(ctx)
+	resp, err := client.Get(fmt.Sprintf("%s/2.0/repositories/%s/%s/refs/branches?pagelen=100", bitbucket.ApiUrl, bitbucket.Username, bitbucket.RepositoryName))
 
-	scanner := bufio.NewScanner(cmdReader)
-	go func() {
-		for scanner.Scan() {
-      words := strings.Fields(scanner.Text())
-      branches = append(branches, strings.Replace(words[1], "refs/heads/", "", 1))
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var branches []string
+
+	if resp.StatusCode == 200 { // OK
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
 		}
-	}()
+		var s = new(BranchesCollection)
+		err = json.Unmarshal(bodyBytes, &s)
+		if err != nil {
+			return nil, err
+		}
 
-	err = cmd.Start()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error starting Cmd", err)
-		os.Exit(1)
+		for _, branch := range s.Branches {
+			branches = append(branches, branch.Name)
+		}
 	}
 
-	err = cmd.Wait()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error waiting for Cmd", err)
-		os.Exit(1)
-	}
-
-  return branches
+	return branches, nil
 }

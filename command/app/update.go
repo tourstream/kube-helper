@@ -3,17 +3,18 @@ package app
 import (
 	"fmt"
 
+	"kube-helper/util"
+
+	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
-	"kube-helper/config"
-	"kube-helper/util"
 )
 
 func CmdUpdate(c *cli.Context) error {
 
 	kubernetesNamespace := getNamespace(c.Args().Get(0))
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 
 	createUniveralDecoder()
 	createContainerService()
@@ -25,7 +26,7 @@ func CmdUpdate(c *cli.Context) error {
 	return nil
 }
 
-func updateApplicationByNamespace(kubernetesNamespace string, configContainer config.Config) error {
+func updateApplicationByNamespace(kubernetesNamespace string, configContainer util.Config) error {
 	err := isValidNamespace(kubernetesNamespace)
 
 	if err != nil {
@@ -42,7 +43,7 @@ func updateApplicationByNamespace(kubernetesNamespace string, configContainer co
 }
 
 func updateFromKubernetesConfig(kubernetesNamespace string, path string) {
-	util.ReplaceVariablesInFile(path, tmpSplitFile, func() {
-		updateKind(kubernetesNamespace)
+	util.ReplaceVariablesInFile(afero.NewOsFs(), path, func(splitLines []string) {
+		updateKind(kubernetesNamespace, splitLines)
 	})
 }

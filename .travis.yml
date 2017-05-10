@@ -1,0 +1,25 @@
+sudo: false
+language: go
+matrix:
+  include:
+    - os: linux
+      go: 1.8.x
+    - os: osx
+      go: 1.8.x
+before_install:
+  - go get -u github.com/golang/dep
+install:
+  - dep ensure
+
+before_script:
+  # OSX as of El Capitan sets an exit trap that interacts poorly with our
+  # set -e below. So, unset the trap.
+  # Related: https://superuser.com/questions/1044130/why-am-i-having-how-can-i-fix-this-error-shell-session-update-command-not-f
+  - if [[ "$(go env GOHOSTOS)" == "darwin" ]]; then trap EXIT; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install bzr; fi
+  - PKGS=$(go list ./... | grep -v /vendor/ )
+script:
+  - go build -v
+  - go vet $PKGS
+  - set -e; for pkg in $PKGS; do go test -race -coverprofile=profile.out -covermode=atomic $pkg; if [[ -f profile.out ]]; then cat profile.out >> coverage.txt; rm profile.out; fi; done

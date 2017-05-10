@@ -9,14 +9,13 @@ import (
 
 	"k8s.io/client-go/pkg/api/v1"
 
-	"kube-helper/config"
 	"kube-helper/util"
 )
 
 func CmdShutdown(c *cli.Context) error {
 
 	kubenetesNamespace := getNamespace(c.Args().Get(0))
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer,_ := util.LoadConfigFromPath(c.String("config"))
 
 	createContainerService()
 	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
@@ -26,7 +25,7 @@ func CmdShutdown(c *cli.Context) error {
 	return nil
 }
 
-func deleteApplicationByNamespace(kubenetesNamespace string, configContainer config.Config) {
+func deleteApplicationByNamespace(kubenetesNamespace string, configContainer util.Config) {
 	ip := getLoadBalancerIP(kubenetesNamespace, 10)
 
 	deleteIngress(kubenetesNamespace, configContainer.ProjectID)
@@ -45,7 +44,7 @@ func deleteNamespace(kubenetesNamespace string) {
 	log.Printf("Namespace \"%s\" was deleted\n", kubenetesNamespace)
 }
 
-func deleteDNSEntries(service *dns.Service, domainNamePart string, ip string, dnsConfig config.DNSConfig) {
+func deleteDNSEntries(service *dns.Service, domainNamePart string, ip string, dnsConfig util.DNSConfig) {
 	if ip == "" {
 		return
 	}

@@ -12,7 +12,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"kube-helper/command/database"
-	"kube-helper/config"
 	"kube-helper/util"
 )
 
@@ -25,14 +24,14 @@ func CmdStartUpAll(c *cli.Context) error {
 	err := cp(".env", ".env_dist")
 	util.CheckError(err)
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 	err = os.Remove(".env")
 	util.CheckError(err)
 
 	createUniveralDecoder()
 	createContainerService()
 	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
-	branches := util.GetBranches(configContainer.Cleanup.RepoUrl)
+	branches, _ := util.GetBranches(configContainer.Bitbucket)
 	for _, branch := range branches {
 		tag := "staging-" + branch + "-latest"
 		if branch == "master" {
@@ -55,11 +54,9 @@ func CmdStartUpAll(c *cli.Context) error {
 		if imageDigest.Digest == "" {
 			continue
 		}
-		util.Dump(imageDigest)
-
 		dat, err := ioutil.ReadFile(".env_dist")
 		util.CheckError(err)
-		databaseName := database.GetDatabaseName(configContainer, branch)
+		databaseName := database.GetDatabaseName(configContainer.Database, branch)
 		stringDat := string(dat)
 
 		stringDat += "\nDATABASE_NAME=" + databaseName + "\n"

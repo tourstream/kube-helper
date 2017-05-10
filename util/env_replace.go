@@ -2,65 +2,76 @@ package util
 
 import (
 	"bufio"
-	"log"
-	"os"
-	"path/filepath"
+	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/spf13/afero"
 )
 
-type callable func()
+var envReader = godotenv.Read
 
-func ReplaceVariablesInFile(path string, tmpSplitFile string, functionCall callable) {
-	absoulteFilePath, err := filepath.Abs(path)
-	CheckError(err)
-	file, err := os.Open(absoulteFilePath)
-	CheckError(err)
+type callable func([]string)
+
+func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall callable) error {
+	file, err := fileSystem.Open(path)
+	if err != nil {
+		return err
+	}
 	defer file.Close()
 
-	f, err := os.Create(tmpSplitFile)
-	CheckError(err)
 	var myEnv map[string]string
-	myEnv, err = godotenv.Read()
-	CheckError(err)
-	defer f.Close()
+	myEnv, err = envReader()
+	if err != nil {
+		return err
+	}
+
+	splitLines := []string{}
+
 	scanner := bufio.NewScanner(file)
 	re := regexp.MustCompile("###.*###")
 	variableNotFound := []string{}
 	for scanner.Scan() {
 		line := scanner.Text()
 		subString := re.FindString(line)
-		if (subString != "") {
+		if subString != "" {
 			variableName := strings.Replace(subString, "#", "", 6)
 			value, ok := myEnv[variableName]
 
-			if (ok == false) {
+			if ok == false {
 				variableNotFound = append(variableNotFound, variableName)
 			}
 
 			line = strings.Replace(line, subString, value, 1)
 		}
-		if (line == "---") {
+		if line == "---" {
 
-			f.Close()
-			if (len(variableNotFound) == 0) {
-				functionCall()
+			err = checkIfVariableWasNotFound(variableNotFound)
+			if err != nil {
+				return err
 			}
+			functionCall(splitLines)
+			splitLines = []string{}
 
-			f, err = os.Create(tmpSplitFile)
-
-			defer f.Close()
-			continue;
+			continue
 		}
+		splitLines = append(splitLines, line)
+	}
+	err = checkIfVariableWasNotFound(variableNotFound)
+	if err != nil {
+		return err
+	}
+	functionCall(splitLines)
 
-		f.WriteString(line + "\n")
-		f.Sync()
+	return nil
+}
+
+func checkIfVariableWasNotFound(variableNotFound []string) error {
+	if len(variableNotFound) > 0 {
+		return errors.New(fmt.Sprintf("The Variables were not found in .env file: %s", strings.Join(variableNotFound, ", ")))
 	}
-	f.Close()
-	if (len(variableNotFound) > 0) {
-		log.Fatalf("The Variables were not found in .env file:\n %s", variableNotFound)
-	}
-	functionCall()
+
+	return nil
 }

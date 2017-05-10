@@ -3,14 +3,14 @@ package app
 import (
 	"fmt"
 
-	"kube-helper/config"
 
 	"github.com/urfave/cli"
+	"kube-helper/util"
 )
 
 func CmdHasNamespace(c *cli.Context) error {
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 	createContainerService()
 	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 

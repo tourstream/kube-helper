@@ -6,9 +6,9 @@ import (
 	"log"
 	"regexp"
 
-	"kube-helper/config"
 	"kube-helper/util"
 
+	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 	"google.golang.org/api/dns/v1"
 	"k8s.io/client-go/pkg/api"
@@ -24,7 +24,7 @@ func CmdStartUp(c *cli.Context) error {
 
 	kubenetesNamespace := getNamespace(c.Args().Get(0))
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 
 	createUniveralDecoder()
 	createContainerService()
@@ -42,17 +42,22 @@ func createUniveralDecoder() {
 	}, unversioned.GroupVersion{
 		Group:   "extensions",
 		Version: "v1beta1",
+	}, unversioned.GroupVersion{
+		Group: "batch",
+		Version: "v2alpha1",
 	})
 }
 
-func createApplicationByNamespace(kubenetesNamespace string, configContainer config.Config) error {
+func createApplicationByNamespace(kubenetesNamespace string, configContainer util.Config) error {
 	err := isValidNamespace(kubenetesNamespace)
 
 	if err != nil {
 		return err
 	}
 	createNamespace(kubenetesNamespace)
-	createFromKubernetesConfig(kubenetesNamespace, configContainer.KubernetesConfigFilepath)
+	err = createFromKubernetesConfig(kubenetesNamespace, configContainer.KubernetesConfigFilepath)
+
+	util.CheckError(err)
 
 	createDNSEntries(createDNSService(), kubenetesNamespace, getLoadBalancerIP(kubenetesNamespace, 60), configContainer.DNS)
 
@@ -63,13 +68,13 @@ func createApplicationByNamespace(kubenetesNamespace string, configContainer con
 	return nil
 }
 
-func createFromKubernetesConfig(kubenetesNamespace string, path string) {
-	util.ReplaceVariablesInFile(path, tmpSplitFile, func() {
-		createKind(kubenetesNamespace)
+func createFromKubernetesConfig(kubenetesNamespace string, path string) error {
+	return util.ReplaceVariablesInFile(afero.NewOsFs(), path, func(splitLines []string) {
+		createKind(kubenetesNamespace, splitLines)
 	})
 }
 
-func createDNSEntries(dnsService *dns.Service, domainNamePart string, ip string, dnsConfig config.DNSConfig) {
+func createDNSEntries(dnsService *dns.Service, domainNamePart string, ip string, dnsConfig util.DNSConfig) {
 	if ip == "" {
 		log.Fatal("No Loadbalancer IP found.")
 	}

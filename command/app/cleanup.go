@@ -5,15 +5,14 @@ import (
 
 	"k8s.io/client-go/pkg/api/v1"
 
-	"kube-helper/config"
 	"kube-helper/util"
 )
 
 func CmdCleanUp(c *cli.Context) error {
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 
-	branches := util.GetBranches(configContainer.Cleanup.RepoUrl)
+	branches, err := util.GetBranches(configContainer.Bitbucket)
 
 	potentialNameSpaces := []string{}
 

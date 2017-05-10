@@ -5,13 +5,12 @@ import (
 
 	"k8s.io/client-go/pkg/api/v1"
 
-	"kube-helper/config"
 	"kube-helper/util"
 )
 
 func CmdShutdownAll(c *cli.Context) error {
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 	createContainerService()
 	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 

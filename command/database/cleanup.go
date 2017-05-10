@@ -8,7 +8,6 @@ import (
 
 	"google.golang.org/api/sqladmin/v1beta4"
 
-	"kube-helper/config"
 	"kube-helper/util"
 )
 
@@ -16,19 +15,19 @@ var cleanUpExcludes = []string{"information_schema", "mysql", "performance_schem
 
 func CmdCleanup(c *cli.Context) error {
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
 	sqlService := createSqlService()
-	branches := util.GetBranches(configContainer.Cleanup.RepoUrl)
+	branches, _ := util.GetBranches(configContainer.Bitbucket)
 	databases := getDatabases(sqlService, configContainer.ProjectID, configContainer.Database.Instance)
 
 	for _, database := range databases {
-		if (database == configContainer.Database.BaseName) {
+		if database == configContainer.Database.BaseName {
 			continue
 		}
 
 		branch := strings.TrimPrefix(database, configContainer.Database.PrefixBranchDatabase)
 
-		if (util.InArray(branches, branch) == false) {
+		if util.InArray(branches, branch) == false {
 			operation, err := sqlService.Databases.Delete(configContainer.ProjectID, configContainer.Database.Instance, database).Do()
 			checkError(err)
 			waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "delete of database")
@@ -44,7 +43,7 @@ func getDatabases(sqlService *sqladmin.Service, projectID string, instance strin
 	databases := []string{}
 	util.CheckError(err)
 	for _, database := range list.Items {
-		if (util.InArray(cleanUpExcludes, database.Name) == false) {
+		if util.InArray(cleanUpExcludes, database.Name) == false {
 			databases = append(databases, database.Name)
 		}
 	}

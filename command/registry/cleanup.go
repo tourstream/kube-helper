@@ -1,82 +1,63 @@
 package registry
 
 import (
-	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
-	"os"
+	"io/ioutil"
 	"os/exec"
 	"strings"
 
 	"github.com/urfave/cli"
-
-	"kube-helper/config"
+	"golang.org/x/oauth2/google"
 	"kube-helper/util"
 )
 
 func CmdCleanup(c *cli.Context) error {
 
-	configContainer := config.LoadConfigFromPath(c.String("config"))
+	configContainer, err := util.LoadConfigFromPath(c.String("config"))
 
-	imagePath := configContainer.Cleanup.ImagePath
+	util.CheckError(err)
 
-	branches := util.GetBranches(configContainer.Cleanup.RepoUrl)
-	cmd := exec.Command("gcloud", "beta", "container", "images", "list-tags", imagePath, "--format=value(tags)")
+	manifests, err := getImageTags()
 
-	cmdReader, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error creating StdoutPipe for Cmd", err)
-		os.Exit(1)
-	}
+	util.CheckError(err)
+
+	branches, err := util.GetBranches(configContainer.Bitbucket)
+
+	util.CheckError(err)
 
 	imagesToDelete := []string{}
 
-	scanner := bufio.NewScanner(cmdReader)
-	go func() {
-		for scanner.Scan() {
-			tags := strings.Split(scanner.Text(), ",")
+	for manifestId, manifest := range manifests.Manifests {
+		cleanup := true
+		for _, tag := range manifest.Tags {
+			if strings.HasPrefix(tag, "staging-") == false {
+				continue
+			}
 
-			// Display all elements.
-			cleanup := true
-			for _, tag := range tags {
-				if strings.HasPrefix(tag, "staging-") == false {
-					continue
-				}
+			if tag == "staging-latest" {
+				cleanup = false
+				break
+			}
 
-				if tag == "staging-latest" {
+			if strings.HasSuffix(tag, "latest") {
+
+				branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
+
+				//do not cleanup if branch exists
+				if inArray(branches, branchName) {
 					cleanup = false
 					break
 				}
 
-				if strings.HasSuffix(tag, "latest") {
-
-					branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
-
-					//do not cleanup if branch exists
-					if inArray(branches, branchName) {
-						cleanup = false
-						break
-					}
-
-				}
-			}
-
-			if cleanup {
-				imagesToDelete = append(imagesToDelete, imagePath+":"+tags[0])
-
 			}
 		}
-	}()
 
-	err = cmd.Start()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error starting Cmd", err)
-		os.Exit(1)
-	}
+		if cleanup {
+			imagesToDelete = append(imagesToDelete, configContainer.Cleanup.ImagePath+":"+manifestId)
 
-	err = cmd.Wait()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error waiting for Cmd", err)
-		os.Exit(1)
+		}
 	}
 
 	for _, image := range imagesToDelete {
@@ -87,6 +68,50 @@ func CmdCleanup(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+type Manifest struct {
+	LayerId string   `json:"layerId"`
+	Tags    []string `json:"tag"`
+}
+
+type TagCollection struct {
+	Name      string
+	Manifests map[string]Manifest `json:"manifest"`
+}
+
+func getImageTags() (*TagCollection, error) {
+	ctx := context.Background()
+
+	client, err := google.DefaultClient(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.Get("https://eu.gcr.io/v2/n2170-container-engine-spike/php-app/tags/list")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var s = new(TagCollection)
+
+	if resp.StatusCode == 200 { // OK
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(bodyBytes, &s)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return s, nil
 }
 
 func inArray(haystack []string, needle string) bool {

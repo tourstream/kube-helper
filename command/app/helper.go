@@ -2,9 +2,7 @@ package app
 
 import (
 	"encoding/base64"
-	"io/ioutil"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,17 +21,6 @@ var containerService *container.Service
 var clientset *kubernetes.Clientset
 
 const stagingEnvironment = "staging"
-const tmpSplitFile = "tmp.yml"
-
-func getFileContent(filePath string) []byte {
-	absoulteFilePath, err := filepath.Abs(filePath)
-	util.CheckError(err)
-
-	fileContent, err := ioutil.ReadFile(absoulteFilePath)
-	util.CheckError(err)
-
-	return fileContent
-}
 
 func createDNSService() *dns.Service {
 	ctx := context.Background()
