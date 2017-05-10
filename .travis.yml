@@ -7,13 +7,16 @@ matrix:
 
     #- os: osx
     #  go: 1.8.x
+
+go_import_path: kube-helper
+
 before_install:
   - go get -u github.com/golang/dep
   - go install github.com/golang/dep/cmd/dep
 install:
   - ls -al
   - dep ensure
-  - ls -al
+  - ls -al vendor
 
 before_script:
   # OSX as of El Capitan sets an exit trap that interacts poorly with our
