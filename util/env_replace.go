@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var envReader = godotenv.Read
+var EnvReader = godotenv.Read
 
 type callable func([]string)
 
@@ -23,7 +23,7 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 	defer file.Close()
 
 	var myEnv map[string]string
-	myEnv, err = envReader()
+	myEnv, err = EnvReader()
 	if err != nil {
 		return err
 	}

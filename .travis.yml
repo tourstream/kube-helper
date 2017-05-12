@@ -4,9 +4,8 @@ matrix:
   include:
     - os: linux
       go: 1.8.x
-
-    #- os: osx
-    #  go: 1.8.x
+    - os: osx
+      go: 1.8.x
 
 go_import_path: kube-helper
 

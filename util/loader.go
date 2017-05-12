@@ -45,10 +45,12 @@ type Config struct {
 	Database                 Database
 }
 
+var FileSystem = afero.NewOsFs()
+
 func LoadConfigFromPath(filepath string) (Config, error) {
 	config := Config{}
 
-	err := ReplaceVariablesInFile(afero.NewOsFs(), filepath, func(splitLines []string) {
+	err := ReplaceVariablesInFile(FileSystem, filepath, func(splitLines []string) {
 		err := yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 		CheckError(err)
 	})

@@ -8,24 +8,35 @@ import (
 	"os/exec"
 	"strings"
 
+	"kube-helper/util"
+
+	"kube-helper/loader"
+
 	"github.com/urfave/cli"
 	"golang.org/x/oauth2/google"
-	"kube-helper/util"
 )
+
+var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 
 func CmdCleanup(c *cli.Context) error {
 
-	configContainer, err := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
 	manifests, err := getImageTags()
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
+	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
-	branches, err := util.GetBranches(configContainer.Bitbucket)
-
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
 	imagesToDelete := []string{}
 
@@ -55,7 +66,7 @@ func CmdCleanup(c *cli.Context) error {
 		}
 
 		if cleanup {
-			imagesToDelete = append(imagesToDelete, configContainer.Cleanup.ImagePath+":"+manifestId)
+			imagesToDelete = append(imagesToDelete, configContainer.Cleanup.ImagePath+"@"+manifestId)
 
 		}
 	}

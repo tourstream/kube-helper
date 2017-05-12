@@ -10,7 +10,10 @@ import (
 
 func CmdShutdownAll(c *cli.Context) error {
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := util.LoadConfigFromPath(c.String("config"))
+	if err != nil {
+		return err
+	}
 	createContainerService()
 	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 

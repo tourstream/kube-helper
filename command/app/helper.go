@@ -22,6 +22,8 @@ var clientset *kubernetes.Clientset
 
 const stagingEnvironment = "staging"
 
+var clientSetCreator = kubernetes.NewForConfig
+
 func createDNSService() *dns.Service {
 	ctx := context.Background()
 
@@ -70,7 +72,7 @@ func createClientSet(projectID string, zone string, clusterId string) {
 
 	kubernetesConfig.TLSClientConfig.CAData = ca
 
-	clientset, err = kubernetes.NewForConfig(kubernetesConfig)
+	clientset, err = clientSetCreator(kubernetesConfig)
 	util.CheckError(err)
 }
 
@@ -140,11 +142,11 @@ func waitForStaticIPToBeDeleted(projectID string, addressName string, maxRetries
 	addressList, err := computeService.GlobalAddresses.List(projectID).Do()
 	util.CheckError(err)
 	for _, address := range addressList.Items {
-		if (address.Name == addressName) {
+		if address.Name == addressName {
 			for retries := 0; retries < maxRetries; retries++ {
 				_, err := computeService.GlobalAddresses.Get(projectID, address.Name).Do()
-				if (err != nil) {
-					break;
+				if err != nil {
+					break
 				}
 				log.Printf("Waiting for IP \"%s\" to be released", address.Name)
 				time.Sleep(time.Second * 5)

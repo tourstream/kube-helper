@@ -13,11 +13,11 @@ func TestEnvReplace(t *testing.T) {
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := EnvReader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { EnvReader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
+	EnvReader = func(filenames ...string) (map[string]string, error) {
 		return map[string]string{
 			"FOO":    "BAR",
 			"FOOBAR": "BARBAR",
@@ -43,11 +43,11 @@ func TestEnvReplaceWithEnvironmentVariableNotFound(t *testing.T) {
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\ntest: ###FOOBAR###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := EnvReader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { EnvReader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
+	EnvReader = func(filenames ...string) (map[string]string, error) {
 		return map[string]string{}, nil
 
 	}
@@ -62,11 +62,11 @@ func TestEnvReplaceWithEnvironmentVariableNotFoundForSplitFile(t *testing.T) {
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOOBAR###\n---\ntest: ###FOO###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := EnvReader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { EnvReader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
+	EnvReader = func(filenames ...string) (map[string]string, error) {
 		return map[string]string{}, nil
 
 	}

@@ -43,7 +43,7 @@ func createUniveralDecoder() {
 		Group:   "extensions",
 		Version: "v1beta1",
 	}, unversioned.GroupVersion{
-		Group: "batch",
+		Group:   "batch",
 		Version: "v2alpha1",
 	})
 }
@@ -54,6 +54,12 @@ func createApplicationByNamespace(kubenetesNamespace string, configContainer uti
 	if err != nil {
 		return err
 	}
+
+	if hasNameSpace(clientset, kubenetesNamespace) {
+		fmt.Printf("Namespace \"%s\" was already generated\n", kubenetesNamespace)
+		return nil
+	}
+
 	createNamespace(kubenetesNamespace)
 	err = createFromKubernetesConfig(kubenetesNamespace, configContainer.KubernetesConfigFilepath)
 
