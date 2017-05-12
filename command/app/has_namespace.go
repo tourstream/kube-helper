@@ -11,8 +11,7 @@ import (
 	"kube-helper/service"
 )
 
-var Writer io.Writer = os.Stdout
-
+var writer io.Writer = os.Stdout
 var serviceBuilder service.BuilderInterface = new(service.Builder)
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 
@@ -27,11 +26,11 @@ func CmdHasNamespace(c *cli.Context) error {
 	clientSet, _ := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 
 	if hasNameSpace(clientSet, getNamespace(c.Args().Get(0))) == false {
-		fmt.Fprint(Writer, "false")
+		fmt.Fprint(writer, "false")
 		return nil
 	}
 
-	fmt.Fprint(Writer, "true")
+	fmt.Fprint(writer, "true")
 
 	return nil
 }

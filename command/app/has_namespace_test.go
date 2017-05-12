@@ -136,10 +136,10 @@ func captureLogOutput(f func()) string {
 }
 
 func captureOutput(f func()) string {
-	oldWriter := Writer
+	oldWriter := writer
 	var buf bytes.Buffer
-	defer func() { Writer = oldWriter }()
-	Writer = &buf
+	defer func() { writer = oldWriter }()
+	writer = &buf
 	f()
 	return buf.String()
 }
