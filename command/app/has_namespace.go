@@ -2,18 +2,9 @@ package app
 
 import (
 	"fmt"
-	"io"
-	"os"
-
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes"
-	"kube-helper/loader"
-	"kube-helper/service"
 )
-
-var writer io.Writer = os.Stdout
-var serviceBuilder service.BuilderInterface = new(service.Builder)
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 
 func CmdHasNamespace(c *cli.Context) error {
 

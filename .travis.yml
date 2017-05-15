@@ -24,7 +24,7 @@ before_script:
   - if [[ "$(go env GOHOSTOS)" == "darwin" ]]; then trap EXIT; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install bzr; fi
-  - PKGS=$(go list ./... | grep -v /vendor/ )
+  - PKGS=$(go list ./... | grep -v /vendor/ | grep -v mocks )
 script:
   - go build -v
   - go vet $PKGS

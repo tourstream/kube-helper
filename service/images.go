@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/oauth2/google"
 	"kube-helper/loader"
+
+	"golang.org/x/oauth2/google"
 )
 
 type Manifest struct {
@@ -24,12 +25,35 @@ type TagCollection struct {
 
 type ImagesInterface interface {
 	List(config loader.Cleanup) (*TagCollection, error)
+	HasTag(config loader.Cleanup, tag string) (bool, error)
 	Untag(tag string) error
 	DeleteManifest(manifest string) error
 }
 
 type Images struct {
 	client *http.Client
+}
+
+func (i *Images) HasTag(config loader.Cleanup, tag string) (bool, error) {
+	err := i.setClient()
+
+	if err != nil {
+		return false, err
+	}
+	imagePath := strings.Split(config.ImagePath, "/")
+
+	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/manifests/%s", imagePath[0], imagePath[1], imagePath[2], tag))
+
+	if err != nil {
+		return false, err
+	}
+
+	if resp.StatusCode == 200 { // OK
+		return true, nil
+	}
+
+	return false, nil
+
 }
 
 func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
@@ -41,7 +65,7 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 
 	imagePath := strings.Split(config.ImagePath, "/")
 
-	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/tags/list", imagePath[0], imagePath[1], imagePath[2]))
+	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/manifests/list", imagePath[0], imagePath[1], imagePath[2]))
 
 	if err != nil {
 		return nil, err

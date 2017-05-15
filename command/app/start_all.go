@@ -3,14 +3,9 @@ package app
 import (
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
-	"os/exec"
 
 	"github.com/urfave/cli"
-
-	"gopkg.in/yaml.v2"
-
 	"kube-helper/command/database"
 	"kube-helper/util"
 )
@@ -22,53 +17,75 @@ type Digest struct {
 func CmdStartUpAll(c *cli.Context) error {
 
 	err := cp(".env", ".env_dist")
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
+
+	if err != nil {
+		return err
+	}
+
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	if err != nil {
+		return err
+	}
+
 	err = os.Remove(".env")
-	util.CheckError(err)
 
-	createUniveralDecoder()
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
-	branches, _ := util.GetBranches(configContainer.Bitbucket)
+	if err != nil {
+		return err
+	}
+
+	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
+
+	if err != nil {
+		return err
+	}
+
 	for _, branch := range branches {
 		tag := "staging-" + branch + "-latest"
 		if branch == "master" {
 			tag = "staging-latest"
 		}
 
-		otherCmd := exec.Command("gcloud", "beta", "container", "images", "list-tags", configContainer.Cleanup.ImagePath, "--filter=tags="+tag, "--format=yaml")
-		stdoutStderr, err := otherCmd.CombinedOutput()
+		hasTag, err := imagesService.HasTag(configContainer.Cleanup, tag)
+
 		if err != nil {
-			log.Print(err)
+			util.Dump(err)
+		}
+
+		if hasTag == false {
 			continue
 		}
 
-		imageDigest := Digest{}
-		err = yaml.Unmarshal(stdoutStderr, &imageDigest)
-		if err != nil {
-			log.Print(err)
-			continue
-		}
-		if imageDigest.Digest == "" {
-			continue
-		}
 		dat, err := ioutil.ReadFile(".env_dist")
-		util.CheckError(err)
+		if err != nil {
+			return err
+		}
+
 		databaseName := database.GetDatabaseName(configContainer.Database, branch)
 		stringDat := string(dat)
 
 		stringDat += "\nDATABASE_NAME=" + databaseName + "\n"
 
 		err = ioutil.WriteFile(".env", []byte(stringDat), 0644)
-		util.CheckError(err)
-		database.CopyDatabaseByBranchName(branch, configContainer)
-		err = createApplicationByNamespace(getNamespace(branch), configContainer)
+		if err != nil {
+			return err
+		}
+
+		err = database.CopyDatabaseByBranchName(branch, configContainer)
+
 		if err != nil {
 			util.Dump(err)
 		}
 
+		err = createApplicationByNamespace(clientSet, getNamespace(branch), configContainer)
+		if err != nil {
+			util.Dump(err)
+		}
 	}
 
 	return nil

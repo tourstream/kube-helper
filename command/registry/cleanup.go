@@ -9,6 +9,7 @@ import (
 	"github.com/urfave/cli"
 	"kube-helper/loader"
 	"kube-helper/service"
+	"kube-helper/util"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
@@ -50,7 +51,7 @@ func CmdCleanup(c *cli.Context) error {
 				branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
 
 				//do not cleanup if branch exists
-				if inArray(branches, branchName) {
+				if util.InArray(branches, branchName) {
 					cleanup = false
 					break
 				}
@@ -83,14 +84,4 @@ func CmdCleanup(c *cli.Context) error {
 	}
 
 	return nil
-}
-
-func inArray(haystack []string, needle string) bool {
-	for _, el := range haystack {
-		if el == needle {
-			return true
-		}
-	}
-
-	return false
 }

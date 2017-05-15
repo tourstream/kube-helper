@@ -1,13 +1,11 @@
 package app
 
 import (
+	"kube-helper/util"
+
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
-	"kube-helper/loader"
-	"kube-helper/util"
 )
-
-var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 
 func CmdCleanUp(c *cli.Context) error {
 

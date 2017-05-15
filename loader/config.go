@@ -63,14 +63,14 @@ type callable func([]string) error
 func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
 	config := Config{}
 
-	err := replaceVariablesInFile(fileSystem, filepath, func(splitLines []string) error {
+	err := ReplaceVariablesInFile(fileSystem, filepath, func(splitLines []string) error {
 		return yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 	})
 
 	return config, err
 }
 
-func replaceVariablesInFile(fileSystem afero.Fs, path string, functionCall callable) error {
+func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall callable) error {
 	file, err := fileSystem.Open(path)
 	if err != nil {
 		return err
