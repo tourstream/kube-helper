@@ -25,6 +25,8 @@ before_script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install bzr; fi
   - PKGS=$(go list ./... | grep -v /vendor/ | grep -v mocks )
+  - mkdir -p ~/.config/gcloud
+  - echo $APP_DEFAULT_CRED | base64 -D >> ~/.config/gcloud/application_default_credentials.json
 script:
   - go build -v
   - go vet $PKGS
