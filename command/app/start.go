@@ -65,7 +65,9 @@ func createApplicationByNamespace(kubenetesNamespace string, configContainer uti
 
 	util.CheckError(err)
 
-	createDNSEntries(createDNSService(), kubenetesNamespace, getLoadBalancerIP(kubenetesNamespace, 60), configContainer.DNS)
+	ip, _ := getLoadBalancerIP(clientset, kubenetesNamespace, 60)
+
+	createDNSEntries(createDNSService(), kubenetesNamespace, ip, configContainer.DNS)
 
 	pods, err := clientset.CoreV1().Pods(kubenetesNamespace).List(v1.ListOptions{})
 	util.CheckError(err)

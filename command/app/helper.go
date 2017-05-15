@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"errors"
+	"kube-helper/util"
+
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
@@ -14,7 +17,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"kube-helper/util"
 )
 
 var containerService *container.Service
@@ -35,15 +37,16 @@ func createDNSService() *dns.Service {
 	return dnsService
 }
 
-func createComputeService() *compute.Service {
+func createComputeService() (*compute.Service, error) {
 	ctx := context.Background()
 
 	client, err := google.DefaultClient(ctx, compute.CloudPlatformScope)
-	util.CheckError(err)
-	computeService, err := compute.New(client)
-	util.CheckError(err)
 
-	return computeService
+	if err != nil {
+		return nil, err
+	}
+
+	return compute.New(client)
 }
 
 func createContainerService() {
@@ -76,13 +79,15 @@ func createClientSet(projectID string, zone string, clusterId string) {
 	util.CheckError(err)
 }
 
-func getLoadBalancerIP(kubenetesNamespace string, maxRetries int) string {
+func getLoadBalancerIP(clienSet kubernetes.Interface, kubenetesNamespace string, maxRetries int) (string, error) {
 	var ip string
 
 	for retries := 0; retries < maxRetries; retries++ {
-		loadbalancer, err := clientset.Ingresses(kubenetesNamespace).Get("loadbalancer")
+		loadbalancer, err := clienSet.ExtensionsV1beta1().Ingresses(kubenetesNamespace).Get("loadbalancer")
 
-		util.CheckError(err)
+		if err != nil {
+			return "", err
+		}
 
 		if len(loadbalancer.Status.LoadBalancer.Ingress) > 0 {
 			ip = loadbalancer.Status.LoadBalancer.Ingress[0].IP
@@ -92,12 +97,11 @@ func getLoadBalancerIP(kubenetesNamespace string, maxRetries int) string {
 		time.Sleep(time.Second * 5)
 	}
 	if ip == "" {
-		log.Print("No Loadbalancer IP found")
-		return ""
+		return "", errors.New("No Loadbalancer IP found")
 	}
 	log.Printf("Loadbalancer IP : %s", ip)
 
-	return ip
+	return ip, nil
 }
 
 func getNamespace(branchName string) string {
@@ -112,7 +116,7 @@ func getNamespace(branchName string) string {
 
 func getResourceRecordSets(domain string, cnames []string, ip string) []*dns.ResourceRecordSet {
 	recordSet := []*dns.ResourceRecordSet{
-		&dns.ResourceRecordSet{
+		{
 			Rrdatas: []string{
 				ip,
 			},
@@ -136,11 +140,19 @@ func getResourceRecordSets(domain string, cnames []string, ip string) []*dns.Res
 	return recordSet
 }
 
-func waitForStaticIPToBeDeleted(projectID string, addressName string, maxRetries int) {
-	computeService := createComputeService()
+func waitForStaticIPToBeDeleted(projectID string, addressName string, maxRetries int) error {
+	computeService, err := createComputeService()
+
+	if err != nil {
+		return err
+	}
 
 	addressList, err := computeService.GlobalAddresses.List(projectID).Do()
-	util.CheckError(err)
+
+	if err != nil {
+		return err
+	}
+
 	for _, address := range addressList.Items {
 		if address.Name == addressName {
 			for retries := 0; retries < maxRetries; retries++ {
@@ -153,4 +165,6 @@ func waitForStaticIPToBeDeleted(projectID string, addressName string, maxRetries
 			}
 		}
 	}
+
+	return nil
 }

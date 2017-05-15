@@ -40,11 +40,7 @@ func CmdCleanup(c *cli.Context) error {
 	for manifestId, manifest := range manifests.Manifests {
 		cleanup := true
 		for _, tag := range manifest.Tags {
-			if strings.HasPrefix(tag, "staging-") == false {
-				continue
-			}
-
-			if tag == "staging-latest" {
+			if strings.HasPrefix(tag, "staging-") == false || tag == "staging-latest" {
 				cleanup = false
 				break
 			}
@@ -58,7 +54,6 @@ func CmdCleanup(c *cli.Context) error {
 					cleanup = false
 					break
 				}
-
 			}
 		}
 

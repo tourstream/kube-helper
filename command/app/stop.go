@@ -4,49 +4,75 @@ import (
 	"log"
 
 	"github.com/urfave/cli"
-
 	"google.golang.org/api/dns/v1"
-
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
-
-	"kube-helper/util"
+	"kube-helper/loader"
 )
 
 func CmdShutdown(c *cli.Context) error {
 
-	kubenetesNamespace := getNamespace(c.Args().Get(0))
-	configContainer,_ := util.LoadConfigFromPath(c.String("config"))
+	kubernetesNamespace := getNamespace(c.Args().Get(0))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	if err != nil {
+		return err
+	}
 
-	deleteApplicationByNamespace(kubenetesNamespace, configContainer)
+	clientSet, _ := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	return deleteApplicationByNamespace(clientSet, kubernetesNamespace, configContainer)
+}
+
+func deleteApplicationByNamespace(clientSet kubernetes.Interface, kubernetesNamespace string, configContainer loader.Config) error {
+	ip, _ := getLoadBalancerIP(clientSet, kubernetesNamespace, 10)
+
+	err := deleteIngress(clientSet, kubernetesNamespace, configContainer.ProjectID)
+
+	if err != nil {
+		return err
+	}
+
+	err = deleteService(clientSet, kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = deleteDeployment(clientSet, kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = deleteNamespace(clientSet, kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Namespace \"%s\" was deleted\n", kubernetesNamespace)
+
+	dnsService, err := serviceBuilder.GetDNSService()
+
+	err = deleteDNSEntries(dnsService, kubernetesNamespace, ip, configContainer.DNS)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Deleted DNS Entries for %s", ip)
 
 	return nil
 }
 
-func deleteApplicationByNamespace(kubenetesNamespace string, configContainer util.Config) {
-	ip := getLoadBalancerIP(kubenetesNamespace, 10)
-
-	deleteIngress(kubenetesNamespace, configContainer.ProjectID)
-	deleteService(kubenetesNamespace)
-	deleteDeployment(kubenetesNamespace)
-
-	deleteNamespace(kubenetesNamespace)
-
-	deleteDNSEntries(createDNSService(), kubenetesNamespace, ip, configContainer.DNS)
+func deleteNamespace(clientSet kubernetes.Interface, kubernetesNamespace string) error {
+	return clientSet.CoreV1().Namespaces().Delete(kubernetesNamespace, &v1.DeleteOptions{})
 }
 
-func deleteNamespace(kubenetesNamespace string) {
-	err := clientset.CoreV1().Namespaces().Delete(kubenetesNamespace, &v1.DeleteOptions{})
-	util.CheckError(err)
-
-	log.Printf("Namespace \"%s\" was deleted\n", kubenetesNamespace)
-}
-
-func deleteDNSEntries(service *dns.Service, domainNamePart string, ip string, dnsConfig util.DNSConfig) {
+func deleteDNSEntries(service *dns.Service, domainNamePart string, ip string, dnsConfig loader.DNSConfig) error {
 	if ip == "" {
-		return
+		return nil
 	}
 
 	domain := domainNamePart + dnsConfig.DomainSuffix
@@ -62,42 +88,62 @@ func deleteDNSEntries(service *dns.Service, domainNamePart string, ip string, dn
 	}
 
 	_, err := service.Changes.Create(dnsConfig.ProjectID, dnsConfig.ManagedZone, deleteDNSEntry).Do()
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
-	log.Printf("Deleted DNS Entries for %s", ip)
+	return nil
 }
 
-func deleteIngress(kubenetesNamespace string, projectID string) {
+func deleteIngress(clientSet kubernetes.Interface, kubernetesNamespace string, projectID string) error {
 
-	list, err := clientset.Ingresses(kubenetesNamespace).List(v1.ListOptions{})
-	util.CheckError(err)
+	list, err := clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).List(v1.ListOptions{})
 
-	err = clientset.Ingresses(kubenetesNamespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
+
+	err = clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
 	for _, ingress := range list.Items {
 		addressName := ingress.Annotations["ingress.kubernetes.io/static-ip"]
 		if len(addressName) > 0 {
-			waitForStaticIPToBeDeleted(projectID, addressName, 60)
+			err := waitForStaticIPToBeDeleted(projectID, addressName, 60)
+			if err != nil {
+				return err
+			}
 			log.Printf("%s is deleted and so the ingres with name \"%s\" is removed", addressName, ingress.Name)
+
 		}
 	}
+
+	return nil
 }
 
-func deleteDeployment(kubenetesNamespace string) {
-	err := clientset.Deployments(kubenetesNamespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
+func deleteDeployment(clientSet kubernetes.Interface, kubernetesNamespace string) error {
+	return clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
 
-	util.CheckError(err)
 }
 
-func deleteService(kubenetesNamespace string) {
+func deleteService(clientSet kubernetes.Interface, kubernetesNamespace string) error {
 
-	list, err := clientset.Services(kubenetesNamespace).List(v1.ListOptions{})
+	list, err := clientSet.CoreV1().Services(kubernetesNamespace).List(v1.ListOptions{})
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
 	for _, service := range list.Items {
-		err = clientset.Services(kubenetesNamespace).Delete(service.Name, &v1.DeleteOptions{})
+		err = clientSet.CoreV1().Services(kubernetesNamespace).Delete(service.Name, &v1.DeleteOptions{})
 
-		util.CheckError(err)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }

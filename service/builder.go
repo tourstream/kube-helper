@@ -6,6 +6,7 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/container/v1"
+	"google.golang.org/api/dns/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -13,6 +14,7 @@ import (
 
 type BuilderInterface interface {
 	GetClientSet(projectID string, zone string, clusterId string) (kubernetes.Interface, error)
+	GetDNSService() (*dns.Service, error)
 }
 
 type Builder struct {
@@ -57,4 +59,14 @@ func (h *Builder) getContainerService() (*container.Service, error) {
 	}
 
 	return container.New(client)
+}
+
+func (h *Builder) GetDNSService() (*dns.Service, error) {
+	client, err := google.DefaultClient(context.Background(), dns.CloudPlatformScope)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return dns.New(client)
 }
