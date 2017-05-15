@@ -75,7 +75,11 @@ func createApplicationByNamespace(clientSet kubernetes.Interface, kubenetesNames
 		return err
 	}
 
-	createDNSEntries(dnsService, kubenetesNamespace, ip, configContainer.DNS)
+	err = createDNSEntries(dnsService, kubenetesNamespace, ip, configContainer.DNS)
+
+	if err != nil {
+		return err
+	}
 
 	pods, err := clientSet.CoreV1().Pods(kubenetesNamespace).List(v1.ListOptions{})
 
