@@ -1,10 +1,11 @@
 package app
 
 import (
-	"kube-helper/util"
+	"fmt"
 
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
+	"kube-helper/util"
 )
 
 func CmdCleanUp(c *cli.Context) error {
@@ -15,7 +16,11 @@ func CmdCleanUp(c *cli.Context) error {
 		return err
 	}
 
-	clientSet, _ := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	if err != nil {
+		return err
+	}
 
 	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
@@ -23,10 +28,12 @@ func CmdCleanUp(c *cli.Context) error {
 		return err
 	}
 
-	potentialNameSpaces := []string{}
+	usedNamespaces := []string{}
+
+	usedNamespaces = append(usedNamespaces, "kube-system", "default")
 
 	for _, branchName := range branches {
-		potentialNameSpaces = append(potentialNameSpaces, getNamespace(branchName))
+		usedNamespaces = append(usedNamespaces, getNamespace(branchName))
 	}
 
 	list, err := clientSet.CoreV1().Namespaces().List(v1.ListOptions{})
@@ -36,11 +43,21 @@ func CmdCleanUp(c *cli.Context) error {
 	}
 
 	for _, namespace := range list.Items {
-		if namespace.Name == "kube-system" || namespace.Name == "default" || util.InArray(potentialNameSpaces, namespace.Name) {
+		if util.InArray(usedNamespaces, namespace.Name) {
 			continue
 		}
 
-		deleteApplicationByNamespace(clientSet, namespace.Name, configContainer)
+		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
+
+		if err != nil {
+			return err
+		}
+
+		err = appService.DeleteByNamespace()
+
+		if err != nil {
+			fmt.Fprint(writer, err)
+		}
 	}
 
 	return nil

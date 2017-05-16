@@ -1,4 +1,4 @@
-package mocks
+package _mocks
 
 import "kube-helper/loader"
 import "github.com/stretchr/testify/mock"

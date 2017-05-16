@@ -1,9 +1,10 @@
+// +build !release
+
 package command
 
 import (
 	"flag"
 	"io/ioutil"
-
 	"github.com/urfave/cli"
 )
 

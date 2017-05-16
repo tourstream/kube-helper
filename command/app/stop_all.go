@@ -1,11 +1,10 @@
 package app
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
-	"kube-helper/util"
 )
 
 func CmdShutdownAll(c *cli.Context) error {
@@ -16,19 +15,33 @@ func CmdShutdownAll(c *cli.Context) error {
 		return err
 	}
 
-	clientSet, _ := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	if err != nil {
+		return err
+	}
 
 	list, err := clientSet.CoreV1().Namespaces().List(v1.ListOptions{})
-	util.CheckError(err)
+
+	if err != nil {
+		return err
+	}
 
 	for _, namespace := range list.Items {
 		if namespace.Name == "kube-system" || namespace.Name == "default" {
 			continue
 		}
-		err := deleteApplicationByNamespace(clientSet, namespace.Name, configContainer)
+
+		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
 
 		if err != nil {
-			log.Print(err)
+			return err
+		}
+
+		err = appService.DeleteByNamespace()
+
+		if err != nil {
+			fmt.Fprint(writer, err)
 		}
 	}
 

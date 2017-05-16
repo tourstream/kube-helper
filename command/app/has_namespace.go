@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"github.com/urfave/cli"
-	"k8s.io/client-go/kubernetes"
 )
 
 func CmdHasNamespace(c *cli.Context) error {
@@ -14,9 +13,19 @@ func CmdHasNamespace(c *cli.Context) error {
 		return err
 	}
 
-	clientSet, _ := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 
-	if hasNameSpace(clientSet, getNamespace(c.Args().Get(0))) == false {
+	if err != nil {
+		return err
+	}
+
+	appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(c.Args().Get(0)), configContainer)
+
+	if err != nil {
+		return err
+	}
+
+	if appService.HasNamespace() == false {
 		fmt.Fprint(writer, "false")
 		return nil
 	}
@@ -24,15 +33,4 @@ func CmdHasNamespace(c *cli.Context) error {
 	fmt.Fprint(writer, "true")
 
 	return nil
-}
-
-func hasNameSpace(clientSet kubernetes.Interface, namespace string) bool {
-	_, err := clientSet.CoreV1().Namespaces().Get(namespace)
-
-	if err != nil {
-		return false
-	}
-
-	return true
-
 }

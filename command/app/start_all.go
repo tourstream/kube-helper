@@ -82,7 +82,14 @@ func CmdStartUpAll(c *cli.Context) error {
 			util.Dump(err)
 		}
 
-		err = createApplicationByNamespace(clientSet, getNamespace(branch), configContainer)
+		appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(branch), configContainer)
+
+		if err != nil {
+			return err
+		}
+
+		err = appService.CreateForNamespace()
+
 		if err != nil {
 			util.Dump(err)
 		}

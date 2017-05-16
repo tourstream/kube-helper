@@ -12,15 +12,18 @@ import (
 	"kube-helper/_mocks"
 )
 
-func TestCmdHasNamespaceWithWrongConf(t *testing.T) {
-	helperTestCmdHasWrongConfigReturned(t, CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
+func TestCmdShutdownWithWrongConf(t *testing.T) {
+	helperTestCmdHasWrongConfigReturned(t, CmdShutdown, []string{"shutdown", "-c", "never.yml", "foobar"})
 }
 
-func TestCmdHasNamespaceWithErrorForClientSet(t *testing.T) {
-	helperTestCmdlWithErrorForClientSet(t, CmdHasNamespace, []string{"has-namesapce", "-c", "never.yml", "foorbar"})
+func TestCmdShutdownWithErrorForClientSet(t *testing.T) {
+	helperTestCmdlWithErrorForClientSet(t, CmdShutdown, []string{"shutdown", "-c", "never.yml", "foorbar"})
 }
 
-func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
+func TestCmdShutdownWithErrorForApplicationService(t *testing.T) {
+
+	oldHandler := cli.OsExiter
+
 	oldConfigLoader := configLoader
 	configLoaderMock := new(_mocks.ConfigLoaderInterface)
 
@@ -39,79 +42,30 @@ func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 
 	serviceBuilder = serviceBuilderMock
 
-	fakeClientSet := fake.NewSimpleClientset()
+	fakeClientSet := new(fake.Clientset)
 
 	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
-	oldHandler := cli.OsExiter
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
 	cli.OsExiter = func(exitCode int) {
 		assert.Equal(t, 1, exitCode)
 	}
-
-
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		cli.OsExiter = oldHandler
-		configLoader = oldConfigLoader
-	}()
-
 	output := captureErrorOutput(func() {
-		command.RunTestCommand(CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
+		command.RunTestCommand(CmdShutdown, []string{"shutdown", "-c", "never.yml", "foobar"})
 	})
 
-	assert.Equal(t, output, "explode\n")
-
+	assert.Equal(t, "explode\n", output)
 }
 
-func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
-	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
-
-	configLoader = configLoaderMock
-
-	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
-	}
-
-	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := fake.NewSimpleClientset()
-	appService := new(_mocks.ApplicationServiceInterface)
-
-	appService.On("HasNamespace").Return(false)
-
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+func TestCmdShutdownWithErrorForDeleteNamespace(t *testing.T) {
 
 	oldHandler := cli.OsExiter
-	cli.OsExiter = func(exitCode int) {
-		assert.Equal(t, 0, exitCode)
-	}
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		cli.OsExiter = oldHandler
-		configLoader = oldConfigLoader
-	}()
-
-	output := captureOutput(func() {
-		command.RunTestCommand(CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
-	})
-
-	assert.Equal(t, output, "false")
-
-}
-
-func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	oldConfigLoader := configLoader
 	configLoaderMock := new(_mocks.ConfigLoaderInterface)
@@ -131,28 +85,68 @@ func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	serviceBuilder = serviceBuilderMock
 
-	fakeClientSet := fake.NewSimpleClientset()
-	appService := new(_mocks.ApplicationServiceInterface)
-
-	appService.On("HasNamespace").Return(true)
+	fakeClientSet := new(fake.Clientset)
+	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
 
 	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+
+	fakeApplicationService.On("DeleteByNamespace").Return(errors.New("explode"))
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 1, exitCode)
+	}
+	output := captureErrorOutput(func() {
+		command.RunTestCommand(CmdShutdown, []string{"shutdown", "-c", "never.yml", "foobar"})
+	})
+
+	assert.Equal(t, "explode\n", output)
+}
+
+func TestCmdShutdown(t *testing.T) {
 
 	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		ProjectID: "test-project",
+		Zone:      "berlin",
+		ClusterID: "testing",
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	fakeClientSet := new(fake.Clientset)
+	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
+
+	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+
+	fakeApplicationService.On("DeleteByNamespace").Return(nil)
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
 	cli.OsExiter = func(exitCode int) {
 		assert.Equal(t, 0, exitCode)
 	}
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		cli.OsExiter = oldHandler
-		configLoader = oldConfigLoader
-	}()
-
-	output := captureOutput(func() {
-		command.RunTestCommand(CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
-	})
-
-	assert.Equal(t, output, "true")
+	command.RunTestCommand(CmdShutdown, []string{"shutdown", "-c", "never.yml", "foobar"})
 }
