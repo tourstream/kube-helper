@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"time"
 
+	"kube-helper/loader"
+
 	"github.com/spf13/afero"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
@@ -14,12 +16,12 @@ import (
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/util/validation"
-	"kube-helper/loader"
 )
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
 	CreateForNamespace() error
+	UpdateByNamespace() error
 	HasNamespace() bool
 }
 
@@ -123,6 +125,30 @@ func (a *applicationService) DeleteByNamespace() error {
 	}
 
 	log.Printf("Deleted DNS Entries for %s", ip)
+
+	return nil
+}
+
+func (a *applicationService) UpdateByNamespace() error {
+	err := a.isValidNamespace()
+
+	if err != nil {
+		return err
+	}
+
+	err = a.updateFromKubernetesConfig()
+
+	if err != nil {
+		return err
+	}
+
+	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
 
 	return nil
 }
@@ -353,5 +379,12 @@ func (a *applicationService) createFromKubernetesConfig() error {
 	kindService := NewKind(a.clientSet)
 	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.CreateKind(a.namespace, splitLines)
+	})
+}
+
+func (a *applicationService) updateFromKubernetesConfig() error {
+	kindService := NewKind(a.clientSet)
+	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
+		return kindService.UpdateKind(a.namespace, splitLines)
 	})
 }

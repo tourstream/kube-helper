@@ -10,10 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
 )
+
+func TestGetNamespace(t *testing.T) {
+	for _, name := range []string{"", "master", "staging"} {
+		assert.Equal(t, getNamespace(name), "staging")
+	}
+}
 
 func helperTestCmdHasWrongConfigReturned(t *testing.T, Action interface{}, arguments []string) {
 
