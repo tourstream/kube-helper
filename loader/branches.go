@@ -1,11 +1,12 @@
 package loader
 
 import (
-	"golang.org/x/oauth2/clientcredentials"
-	"fmt"
-	"io/ioutil"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 type branch struct {
@@ -21,9 +22,7 @@ type BranchLoaderInterface interface {
 	LoadBranches(bitbucket Bitbucket) ([]string, error)
 }
 
-
 type BranchLoader struct {
-
 }
 
 func (b *BranchLoader) LoadBranches(bitbucket Bitbucket) ([]string, error) {
@@ -44,7 +43,7 @@ func (b *BranchLoader) LoadBranches(bitbucket Bitbucket) ([]string, error) {
 
 	defer resp.Body.Close()
 
-	var branches []string
+	branches := []string{}
 
 	if resp.StatusCode == 200 { // OK
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
