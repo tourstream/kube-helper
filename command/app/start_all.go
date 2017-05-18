@@ -5,21 +5,20 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/urfave/cli"
 	"kube-helper/command/database"
 	"kube-helper/util"
+
+	"github.com/spf13/afero"
+	"github.com/urfave/cli"
 )
 
 type Digest struct {
 	Digest string
 }
 
-func CmdStartUpAll(c *cli.Context) error {
+var fileSystem = afero.NewOsFs()
 
-	err := cp(".env", ".env_dist")
-	if err != nil {
-		return err
-	}
+func CmdStartUpAll(c *cli.Context) error {
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
@@ -32,6 +31,12 @@ func CmdStartUpAll(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	err = cp(".env", ".env_dist")
+	if err != nil {
+		return err
+	}
+
 
 	err = os.Remove(".env")
 
@@ -99,19 +104,19 @@ func CmdStartUpAll(c *cli.Context) error {
 }
 
 func cp(dst, src string) error {
-	s, err := os.Open(src)
+	s, err := fileSystem.Open(src)
 	if err != nil {
 		return err
 	}
 	// no need to check errors on read only file, we already got everything
 	// we need from the filesystem, so nothing can go wrong now.
 	defer s.Close()
-	d, err := os.Create(dst)
+	d, err := fileSystem.Create(dst)
 	if err != nil {
 		return err
 	}
 	if _, err := io.Copy(d, s); err != nil {
-		d.Close()
+		defer d.Close()
 		return err
 	}
 	return d.Close()

@@ -108,7 +108,13 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	scanner := bufio.NewScanner(gz)
 	tmpName := fmt.Sprintf(filenamePattern, databaseName+"tmp")
-	f := util.CreateGZ(tmpName)
+	writer, err := util.CreateGzWriter(tmpName)
+
+	if err != nil {
+		return err
+	}
+
+	defer writer.Close()
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -117,11 +123,8 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 			line = strings.Replace(line, configContainer.Database.BaseName, databaseName, 1)
 		}
 
-		util.WriteGZ(f, line+"\n")
-
+		writer.Write(line+"\n")
 	}
-
-	util.CloseGZ(f)
 
 	err = storageService.UploadFile(tmpName, tmpName, instance.ServiceAccountEmailAddress)
 
