@@ -1,18 +1,16 @@
 package service
 
 import (
+	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
-
 	StorageClient "cloud.google.com/go/storage"
 	"google.golang.org/api/storage/v1"
-	"context"
 )
 
 type BucketServiceInterface interface {
-	DownLoadFile(filename string, serviceAccountEmailAddress string) (*os.File, error)
+	DownLoadFile(filename string, serviceAccountEmailAddress string) (io.Reader, error)
 	SetBucketACL(serviceAccountEmailAddress string, role string) error
 	RemoveBucketACL(serviceAccount string) error
 	DeleteFile(filename string) error
@@ -36,7 +34,7 @@ func NewBucketService(bucket string, client *http.Client, storageService *storag
 	return b
 }
 
-func (b *bucketService) DownLoadFile(filename string, serviceAccountEmailAddress string) (*os.File, error) {
+func (b *bucketService) DownLoadFile(filename string, serviceAccountEmailAddress string) (io.Reader, error) {
 
 	err := b.SetBucketACL(serviceAccountEmailAddress, "READER")
 
@@ -50,27 +48,12 @@ func (b *bucketService) DownLoadFile(filename string, serviceAccountEmailAddress
 		return nil, err
 	}
 
-	tmpfile, err := ioutil.TempFile("", filename)
-	if err != nil {
-		return nil, err
-	}
-
-	defer os.Remove(tmpfile.Name()) //cleanuo
-
 	response, err := b.httpClient.Get(bucket.MediaLink)
 
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-
-	_, err = io.Copy(tmpfile, response.Body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return tmpfile, err
+	return response.Body, nil
 }
 
 func (b *bucketService) DeleteFile(filename string) error {
@@ -101,7 +84,6 @@ func (b *bucketService) UploadFile(targetFilename string, originalFilename strin
 	w.ACL = []StorageClient.ACLRule{{Entity: StorageClient.ACLEntity("user-" + serviceAccountEmailAddress), Role: StorageClient.RoleReader}}
 
 	file, err := os.Open(originalFilename)
-
 	if err != nil {
 		return err
 	}

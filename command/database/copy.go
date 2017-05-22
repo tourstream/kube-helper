@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
-	"log"
-	"strings"
-	"github.com/urfave/cli"
-	"google.golang.org/api/sqladmin/v1beta4"
 	"kube-helper/loader"
 	"kube-helper/util"
+	"log"
+	"strings"
+
+	"github.com/urfave/cli"
+	"google.golang.org/api/sqladmin/v1beta4"
 )
 
 const filenamePattern = "%s.sql.gz"
@@ -90,16 +91,17 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return err
 	}
 
+	defer storageService.DeleteFile(dumpFilename)
+
 	log.Print("Export for sql finished")
 
-	tmpDownloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
+	downloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
 
 	if err != nil {
 		return err
 	}
 
-	gz, err := gzip.NewReader(tmpDownloadedFile)
-
+	gz, err := gzip.NewReader(downloadedFile)
 	if err != nil {
 		return err
 	}
@@ -107,6 +109,8 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	defer gz.Close()
 
 	scanner := bufio.NewScanner(gz)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
 	tmpName := fmt.Sprintf(filenamePattern, databaseName+"tmp")
 	writer, err := util.CreateGzWriter(tmpName)
 
@@ -114,23 +118,31 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return err
 	}
 
-	defer writer.Close()
+	scanner.Err()
 
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		if strings.HasPrefix(line, "CREATE DATABASE") || strings.HasPrefix(line, "USE") {
 			line = strings.Replace(line, configContainer.Database.BaseName, databaseName, 1)
 		}
-
-		writer.Write(line+"\n")
+		_, err = writer.Write(line + "\n")
+		if err != nil {
+			return err
+		}
 	}
 
+	if scanner.Err() != nil {
+		return scanner.Err()
+	}
+
+	writer.Close()
 	err = storageService.UploadFile(tmpName, tmpName, instance.ServiceAccountEmailAddress)
 
 	if err != nil {
 		return err
 	}
+
+	defer storageService.DeleteFile(tmpName)
 
 	operation, err = sqlService.Databases.Insert(configContainer.ProjectID, configContainer.Database.Instance, &sqladmin.Database{
 		Name: databaseName,
@@ -165,14 +177,6 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return err
 	}
 	log.Print("Import for sql finished")
-	err = storageService.RemoveBucketACL(instance.ServiceAccountEmailAddress)
-	if err != nil {
-		return err
-	}
 
-	err = storageService.DeleteFile(dumpFilename)
-	if err != nil {
-		return err
-	}
-	return storageService.DeleteFile(tmpName)
+	return storageService.RemoveBucketACL(instance.ServiceAccountEmailAddress)
 }

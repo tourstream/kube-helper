@@ -376,14 +376,14 @@ func (a *applicationService) createNamespace() error {
 }
 
 func (a *applicationService) createFromKubernetesConfig() error {
-	kindService := NewKind(a.clientSet)
+	kindService := NewKind(a.clientSet, new(Images), a.config)
 	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.CreateKind(a.namespace, splitLines)
 	})
 }
 
 func (a *applicationService) updateFromKubernetesConfig() error {
-	kindService := NewKind(a.clientSet)
+	kindService := NewKind(a.clientSet, new(Images), a.config)
 	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.UpdateKind(a.namespace, splitLines)
 	})

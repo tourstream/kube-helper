@@ -20,11 +20,12 @@ func CreateGzWriter(name string) (gzWriter, error) {
 
 	file, err := os.OpenFile(name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 	if err != nil {
-		return nil, err
+		return gzWriter{}, err
 	}
-	gzWriter := gzip.NewWriter(file)
+	writer := gzip.NewWriter(file)
+	bufioWriter := bufio.NewWriter(writer)
 
-	return gzWriter{file, gzWriter, bufio.NewWriter(gzWriter)}, nil
+	return gzWriter{file, writer, bufioWriter}, nil
 }
 
 func (f *gzWriter) Write(s string) (int, error) {

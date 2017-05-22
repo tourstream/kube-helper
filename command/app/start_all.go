@@ -1,15 +1,12 @@
 package app
 
 import (
+	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
-
-	"kube-helper/command/database"
-	"kube-helper/util"
 
 	"github.com/spf13/afero"
 	"github.com/urfave/cli"
+	"kube-helper/command/database"
 )
 
 type Digest struct {
@@ -17,6 +14,7 @@ type Digest struct {
 }
 
 var fileSystem = afero.NewOsFs()
+var databaseCopy = database.CopyDatabaseByBranchName
 
 func CmdStartUpAll(c *cli.Context) error {
 
@@ -32,13 +30,12 @@ func CmdStartUpAll(c *cli.Context) error {
 		return err
 	}
 
-	err = cp(".env", ".env_dist")
+	err = cp(".env_dist", ".env")
 	if err != nil {
 		return err
 	}
 
-
-	err = os.Remove(".env")
+	err = fileSystem.Remove(".env")
 
 	if err != nil {
 		return err
@@ -59,14 +56,13 @@ func CmdStartUpAll(c *cli.Context) error {
 		hasTag, err := imagesService.HasTag(configContainer.Cleanup, tag)
 
 		if err != nil {
-			util.Dump(err)
+			fmt.Fprintln(writer, err)
 		}
 
 		if hasTag == false {
 			continue
 		}
-
-		dat, err := ioutil.ReadFile(".env_dist")
+		dat, err := afero.ReadFile(fileSystem, ".env_dist")
 		if err != nil {
 			return err
 		}
@@ -76,15 +72,15 @@ func CmdStartUpAll(c *cli.Context) error {
 
 		stringDat += "\nDATABASE_NAME=" + databaseName + "\n"
 
-		err = ioutil.WriteFile(".env", []byte(stringDat), 0644)
+		err = afero.WriteFile(fileSystem, ".env", []byte(stringDat), 0644)
 		if err != nil {
 			return err
 		}
 
-		err = database.CopyDatabaseByBranchName(branch, configContainer)
+		err = databaseCopy(branch, configContainer)
 
 		if err != nil {
-			util.Dump(err)
+			fmt.Fprintln(writer, err)
 		}
 
 		appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(branch), configContainer)
@@ -96,7 +92,7 @@ func CmdStartUpAll(c *cli.Context) error {
 		err = appService.CreateForNamespace()
 
 		if err != nil {
-			util.Dump(err)
+			fmt.Fprintln(writer, err)
 		}
 	}
 
@@ -115,6 +111,7 @@ func cp(dst, src string) error {
 	if err != nil {
 		return err
 	}
+
 	if _, err := io.Copy(d, s); err != nil {
 		defer d.Close()
 		return err

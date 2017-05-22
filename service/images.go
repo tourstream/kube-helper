@@ -65,7 +65,7 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 
 	imagePath := strings.Split(config.ImagePath, "/")
 
-	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/manifests/list", imagePath[0], imagePath[1], imagePath[2]))
+	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/tags/list", imagePath[0], imagePath[1], imagePath[2]))
 
 	if err != nil {
 		return nil, err

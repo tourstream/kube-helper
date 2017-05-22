@@ -6,6 +6,9 @@ import (
 	"log"
 	"strings"
 
+	"kube-helper/loader"
+	"kube-helper/util"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/unversioned"
@@ -21,11 +24,13 @@ type KindInterface interface {
 }
 
 type kindService struct {
-	decoder   runtime.Decoder
-	clientSet kubernetes.Interface
+	decoder       runtime.Decoder
+	clientSet     kubernetes.Interface
+	imagesService ImagesInterface
+	config        loader.Config
 }
 
-func NewKind(client kubernetes.Interface) *kindService {
+func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
 	k := new(kindService)
 	k.decoder = api.Codecs.UniversalDecoder(unversioned.GroupVersion{
 		Version: "v1",
@@ -37,6 +42,8 @@ func NewKind(client kubernetes.Interface) *kindService {
 		Version: "v2alpha1",
 	})
 	k.clientSet = client
+	k.imagesService = imagesService
+	k.config = config
 
 	return k
 }
@@ -65,7 +72,7 @@ func (k *kindService) CreateKind(kubernetesNamespace string, fileLines []string)
 
 }
 
-func  (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string) error {
+func (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string) error {
 	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
 	if err != nil {
 		return err
@@ -92,6 +99,14 @@ func  (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string
 
 func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
 
+	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
+		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Get(cronJob.Name)
 
 	if err != nil {
@@ -113,6 +128,14 @@ func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha
 }
 
 func (k *kindService) updateDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
+
+	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
+		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, kubernetesNamespace)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Update(deployment)
 
@@ -149,8 +172,15 @@ func (k *kindService) updateConfigMap(kubernetesNamespace string, configMap *v1.
 	return nil
 }
 
-
 func (k *kindService) createCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
+
+	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
+		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Create(cronJob)
 
@@ -164,6 +194,14 @@ func (k *kindService) createCronJob(kubernetesNamespace string, cronJob *v2alpha
 }
 
 func (k *kindService) createDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
+
+	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
+		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, kubernetesNamespace)
+
+		if err != nil {
+			return err
+		}
+	}
 
 	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Create(deployment)
 
@@ -223,4 +261,50 @@ func (k *kindService) createConfigMap(kubernetesNamespace string, configMap *v1.
 	log.Printf("ConfigMap \"%s\" was generated\n", configMap.ObjectMeta.Name)
 
 	return nil
+}
+
+func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, kubernetesNamespace string) error {
+
+	var imagesService ImagesInterface = new(Images)
+
+	for idx, container := range containers {
+
+		images, err := imagesService.List(loader.Cleanup{ImagePath: container.Image})
+
+		if err != nil {
+			return err
+		}
+
+		switch strategy {
+		case "latest-branching":
+
+			latestTag := "staging-" + kubernetesNamespace + "-latest"
+
+			if kubernetesNamespace == "staging" {
+				latestTag = "staging-latest"
+			}
+
+			tag := getVersionForLatestTag(latestTag, images)
+
+			if tag != "" {
+				containers[idx].Image += ":" + tag
+			}
+		}
+	}
+
+	return nil
+}
+
+func getVersionForLatestTag(latestTag string, images *TagCollection) string {
+	for _, manifest := range images.Manifests {
+		if util.InArray(manifest.Tags, latestTag) {
+			for _, tag := range manifest.Tags {
+				if tag != latestTag {
+					return tag
+				}
+			}
+		}
+	}
+
+	return ""
 }
