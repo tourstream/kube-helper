@@ -1,7 +1,11 @@
 FROM golang:1.8 as builder
+RUN go get -u github.com/golang/dep
+RUN go install github.com/golang/dep/cmd/dep
+
 WORKDIR /go/src/kube-helper/
 COPY . .
 ADD https://github.com/upx/upx/releases/download/v3.94/upx-3.94-amd64_linux.tar.xz .
+RUN dep ensure
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o kube-helper .
 RUN upx-3.94-amd64_linux/upx --best --ultra-brute kube-helper
 
