@@ -299,7 +299,7 @@ func getVersionForLatestTag(latestTag string, images *TagCollection) string {
 	for _, manifest := range images.Manifests {
 		if util.InArray(manifest.Tags, latestTag) {
 			for _, tag := range manifest.Tags {
-				if tag != latestTag {
+				if tag != latestTag && tag != "latest" {
 					return tag
 				}
 			}
