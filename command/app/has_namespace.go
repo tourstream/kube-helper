@@ -2,26 +2,35 @@ package app
 
 import (
 	"fmt"
-
-
 	"github.com/urfave/cli"
-	"kube-helper/util"
 )
 
 func CmdHasNamespace(c *cli.Context) error {
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
-
-	_, err := clientset.CoreV1().Namespaces().Get(getNamespace(c.Args().Get(0)))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		fmt.Println("false")
+		return err
+	}
+
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	if err != nil {
+		return err
+	}
+
+	appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(c.Args().Get(0)), configContainer)
+
+	if err != nil {
+		return err
+	}
+
+	if appService.HasNamespace() == false {
+		fmt.Fprint(writer, "false")
 		return nil
 	}
 
-	fmt.Println("true")
+	fmt.Fprint(writer, "true")
 
 	return nil
 }

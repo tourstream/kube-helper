@@ -4,9 +4,8 @@ matrix:
   include:
     - os: linux
       go: 1.8.x
-
-    #- os: osx
-    #  go: 1.8.x
+    - os: osx
+      go: 1.8.x
 
 go_import_path: kube-helper
 
@@ -14,9 +13,9 @@ before_install:
   - go get -u github.com/golang/dep
   - go install github.com/golang/dep/cmd/dep
 install:
-  - ls -al
+  - mkdir -p ~/.config/gcloud
+  - echo $APP_DEFAULT_CRED | base64 --decode >> ~/.config/gcloud/application_default_credentials.json
   - dep ensure
-  - ls -al vendor
 
 before_script:
   # OSX as of El Capitan sets an exit trap that interacts poorly with our
@@ -25,8 +24,9 @@ before_script:
   - if [[ "$(go env GOHOSTOS)" == "darwin" ]]; then trap EXIT; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install bzr; fi
-  - PKGS=$(go list ./... | grep -v /vendor/ )
+  - PKGS=$(go list ./... | grep -v /vendor/ | grep -v mocks )
+
 script:
-  - go build -v
+  - go build
   - go vet $PKGS
   - set -e; for pkg in $PKGS; do go test -race -coverprofile=profile.out -covermode=atomic $pkg; if [[ -f profile.out ]]; then cat profile.out >> coverage.txt; rm profile.out; fi; done

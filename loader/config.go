@@ -1,4 +1,4 @@
-package util
+package loader
 
 import (
 	"strings"
@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
 )
+
+type ConfigLoaderInterface interface {
+	LoadConfigFromPath(filepath string) (Config, error)
+}
 
 type Cleanup struct {
 	ImagePath string `yaml:"image_path"`
@@ -45,12 +49,13 @@ type Config struct {
 	Database                 Database
 }
 
-func LoadConfigFromPath(filepath string) (Config, error) {
+var fileSystemWrapper = afero.NewOsFs()
+
+func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
 	config := Config{}
 
-	err := ReplaceVariablesInFile(afero.NewOsFs(), filepath, func(splitLines []string) {
-		err := yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
-		CheckError(err)
+	err := ReplaceVariablesInFile(fileSystemWrapper, filepath, func(splitLines []string) error {
+		return yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 	})
 
 	return config, err

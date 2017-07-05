@@ -1,9 +1,9 @@
 package util
 
 import (
-  "fmt"
+	"fmt"
 )
 
 func Dump(a interface{}) {
-  fmt.Printf("%+v\n", a)
+	fmt.Printf("%+v\n", a)
 }

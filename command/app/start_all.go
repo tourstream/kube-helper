@@ -1,93 +1,119 @@
 package app
 
 import (
+	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
-	"os"
-	"os/exec"
 
+	"github.com/spf13/afero"
 	"github.com/urfave/cli"
-
-	"gopkg.in/yaml.v2"
-
 	"kube-helper/command/database"
-	"kube-helper/util"
 )
 
 type Digest struct {
 	Digest string
 }
 
+var fileSystem = afero.NewOsFs()
+var databaseCopy = database.CopyDatabaseByBranchName
+
 func CmdStartUpAll(c *cli.Context) error {
 
-	err := cp(".env", ".env_dist")
-	util.CheckError(err)
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
-	err = os.Remove(".env")
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
-	createUniveralDecoder()
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
-	branches, _ := util.GetBranches(configContainer.Bitbucket)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+
+	if err != nil {
+		return err
+	}
+
+	err = cp(".env_dist", ".env")
+	if err != nil {
+		return err
+	}
+
+	err = fileSystem.Remove(".env")
+
+	if err != nil {
+		return err
+	}
+
+	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
+
+	if err != nil {
+		return err
+	}
+
 	for _, branch := range branches {
 		tag := "staging-" + branch + "-latest"
 		if branch == "master" {
 			tag = "staging-latest"
 		}
 
-		otherCmd := exec.Command("gcloud", "beta", "container", "images", "list-tags", configContainer.Cleanup.ImagePath, "--filter=tags="+tag, "--format=yaml")
-		stdoutStderr, err := otherCmd.CombinedOutput()
+		hasTag, err := imagesService.HasTag(configContainer.Cleanup, tag)
+
 		if err != nil {
-			log.Print(err)
-			continue
+			fmt.Fprintln(writer, err)
 		}
 
-		imageDigest := Digest{}
-		err = yaml.Unmarshal(stdoutStderr, &imageDigest)
+		if hasTag == false {
+			continue
+		}
+		dat, err := afero.ReadFile(fileSystem, ".env_dist")
 		if err != nil {
-			log.Print(err)
-			continue
+			return err
 		}
-		if imageDigest.Digest == "" {
-			continue
-		}
-		dat, err := ioutil.ReadFile(".env_dist")
-		util.CheckError(err)
+
 		databaseName := database.GetDatabaseName(configContainer.Database, branch)
 		stringDat := string(dat)
 
 		stringDat += "\nDATABASE_NAME=" + databaseName + "\n"
 
-		err = ioutil.WriteFile(".env", []byte(stringDat), 0644)
-		util.CheckError(err)
-		database.CopyDatabaseByBranchName(branch, configContainer)
-		err = createApplicationByNamespace(getNamespace(branch), configContainer)
+		err = afero.WriteFile(fileSystem, ".env", []byte(stringDat), 0644)
 		if err != nil {
-			util.Dump(err)
+			return err
 		}
 
+		err = databaseCopy(branch, configContainer)
+
+		if err != nil {
+			fmt.Fprintln(writer, err)
+		}
+
+		appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(branch), configContainer)
+
+		if err != nil {
+			return err
+		}
+
+		err = appService.CreateForNamespace()
+
+		if err != nil {
+			fmt.Fprintln(writer, err)
+		}
 	}
 
 	return nil
 }
 
 func cp(dst, src string) error {
-	s, err := os.Open(src)
+	s, err := fileSystem.Open(src)
 	if err != nil {
 		return err
 	}
 	// no need to check errors on read only file, we already got everything
 	// we need from the filesystem, so nothing can go wrong now.
 	defer s.Close()
-	d, err := os.Create(dst)
+	d, err := fileSystem.Create(dst)
 	if err != nil {
 		return err
 	}
+
 	if _, err := io.Copy(d, s); err != nil {
-		d.Close()
+		defer d.Close()
 		return err
 	}
 	return d.Close()

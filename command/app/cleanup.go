@@ -1,37 +1,63 @@
 package app
 
 import (
+	"fmt"
+
 	"github.com/urfave/cli"
-
 	"k8s.io/client-go/pkg/api/v1"
-
 	"kube-helper/util"
 )
 
 func CmdCleanUp(c *cli.Context) error {
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
-	branches, err := util.GetBranches(configContainer.Bitbucket)
-
-	potentialNameSpaces := []string{}
-
-	for _, branchName := range branches {
-		potentialNameSpaces = append(potentialNameSpaces, getNamespace(branchName))
+	if err != nil {
+		return err
 	}
 
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 
-	list, err := clientset.CoreV1().Namespaces().List(v1.ListOptions{})
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
+
+	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
+
+	if err != nil {
+		return err
+	}
+
+	usedNamespaces := []string{}
+
+	usedNamespaces = append(usedNamespaces, "kube-system", "default")
+
+	for _, branchName := range branches {
+		usedNamespaces = append(usedNamespaces, getNamespace(branchName))
+	}
+
+	list, err := clientSet.CoreV1().Namespaces().List(v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
 
 	for _, namespace := range list.Items {
-		if namespace.Name == "kube-system" || namespace.Name == "default" || util.InArray(potentialNameSpaces, namespace.Name) {
+		if util.InArray(usedNamespaces, namespace.Name) {
 			continue
 		}
 
-		deleteApplicationByNamespace(namespace.Name, configContainer)
+		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
+
+		if err != nil {
+			return err
+		}
+
+		err = appService.DeleteByNamespace()
+
+		if err != nil {
+			fmt.Fprint(writer, err)
+		}
 	}
 
 	return nil

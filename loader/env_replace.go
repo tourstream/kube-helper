@@ -1,4 +1,4 @@
-package util
+package loader
 
 import (
 	"bufio"
@@ -11,9 +11,10 @@ import (
 	"github.com/spf13/afero"
 )
 
+
 var envReader = godotenv.Read
 
-type callable func([]string)
+type callable func([]string) error
 
 func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall callable) error {
 	file, err := fileSystem.Open(path)
@@ -52,7 +53,11 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 			if err != nil {
 				return err
 			}
-			functionCall(splitLines)
+			err = functionCall(splitLines)
+
+			if err != nil {
+				return err
+			}
 			splitLines = []string{}
 
 			continue
@@ -63,9 +68,7 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 	if err != nil {
 		return err
 	}
-	functionCall(splitLines)
-
-	return nil
+	return functionCall(splitLines)
 }
 
 func checkIfVariableWasNotFound(variableNotFound []string) error {

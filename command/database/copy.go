@@ -4,32 +4,29 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-	"time"
-
-	GoStorage "cloud.google.com/go/storage"
-	"github.com/urfave/cli"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/api/sqladmin/v1beta4"
-	"google.golang.org/api/storage/v1"
+	"kube-helper/loader"
 	"kube-helper/util"
+	"log"
+	"strings"
+
+	"github.com/urfave/cli"
+	"google.golang.org/api/sqladmin/v1beta4"
 )
 
 const filenamePattern = "%s.sql.gz"
 const filepathPattern = "gs://%s/%s"
 
 func CmdCopy(c *cli.Context) error {
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
+
+	if err != nil {
+		return err
+	}
 
 	return CopyDatabaseByBranchName(c.Args().Get(0), configContainer)
 }
 
-func GetDatabaseName(databaseConfig util.Database, branchName string) string {
+func GetDatabaseName(databaseConfig loader.Database, branchName string) string {
 	if branchName == "master" {
 		return databaseConfig.BaseName
 	}
@@ -41,23 +38,39 @@ func GetDatabaseName(databaseConfig util.Database, branchName string) string {
 	return databaseName[:length]
 }
 
-func CopyDatabaseByBranchName(branchName string, configContainer util.Config) error {
+func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) error {
 
 	databaseName := GetDatabaseName(configContainer.Database, branchName)
 
-	sqlService := createSqlService()
+	sqlService, err := serviceBuilder.GetSqlService()
+
+	if err != nil {
+		return err
+	}
 
 	database, _ := sqlService.Databases.Get(configContainer.ProjectID, configContainer.Database.Instance, databaseName).Do()
 	if database != nil {
 		log.Printf("Database %s already exists", databaseName)
 		return nil
 	}
-	storageService := createStorageService()
+	storageService, err := serviceBuilder.GetStorageService(configContainer.Database.Bucket)
+
+	if err != nil {
+		return err
+	}
+
 	instance, err := sqlService.Instances.Get(configContainer.ProjectID, configContainer.Database.Instance).Do()
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
-	setBucketACL(storageService, configContainer.Database.Bucket, instance.ServiceAccountEmailAddress, "WRITER")
+	err = storageService.SetBucketACL(instance.ServiceAccountEmailAddress, "WRITER")
+
+	if err != nil {
+		return err
+	}
+
 	dumpFilename := fmt.Sprintf(filenamePattern, databaseName)
 	exportFilePath := fmt.Sprintf(filepathPattern, configContainer.Database.Bucket, dumpFilename)
 
@@ -67,65 +80,83 @@ func CopyDatabaseByBranchName(branchName string, configContainer util.Config) er
 	exportRequest.ExportContext.Uri = exportFilePath
 
 	operation, err := sqlService.Instances.Export(configContainer.ProjectID, configContainer.Database.Instance, exportRequest).Do()
-	checkError(err)
-	waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "export of database")
+
+	if err != nil {
+		return err
+	}
+
+	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "export of database")
+
+	if err != nil {
+		return err
+	}
+
+	defer storageService.DeleteFile(dumpFilename)
+
 	log.Print("Export for sql finished")
 
-	setBucketACL(storageService, configContainer.Database.Bucket, instance.ServiceAccountEmailAddress, "READER")
+	downloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
 
-	//download file
+	if err != nil {
+		return err
+	}
 
-	bucket, err := storageService.Objects.Get(configContainer.Database.Bucket, dumpFilename).Do()
-	util.CheckError(err)
+	gz, err := gzip.NewReader(downloadedFile)
+	if err != nil {
+		return err
+	}
 
-	downloadFromUrl(bucket.MediaLink, dumpFilename)
-
-	file, err := os.Open(dumpFilename)
-	util.CheckError(err)
-
-	gz, err := gzip.NewReader(file)
-
-	util.CheckError(err)
-
-	defer file.Close()
 	defer gz.Close()
 
 	scanner := bufio.NewScanner(gz)
+	buf := make([]byte, 0, 1024*1024)
+	scanner.Buffer(buf, 1024*1024)
 	tmpName := fmt.Sprintf(filenamePattern, databaseName+"tmp")
-	f := util.CreateGZ(tmpName)
+	writer, err := util.CreateGzWriter(tmpName)
+
+	if err != nil {
+		return err
+	}
+
+	scanner.Err()
 
 	for scanner.Scan() {
 		line := scanner.Text()
-
 		if strings.HasPrefix(line, "CREATE DATABASE") || strings.HasPrefix(line, "USE") {
 			line = strings.Replace(line, configContainer.Database.BaseName, databaseName, 1)
 		}
-
-		util.WriteGZ(f, line+"\n")
-
+		_, err = writer.Write(line + "\n")
+		if err != nil {
+			return err
+		}
 	}
 
-	util.CloseGZ(f)
+	if scanner.Err() != nil {
+		return scanner.Err()
+	}
 
-	storageHelper, err := GoStorage.NewClient(context.Background())
-	util.CheckError(err)
+	writer.Close()
+	err = storageService.UploadFile(tmpName, tmpName, instance.ServiceAccountEmailAddress)
 
-	w := storageHelper.Bucket(configContainer.Database.Bucket).Object(tmpName).NewWriter(context.Background())
-	w.ACL = []GoStorage.ACLRule{{Entity: GoStorage.ACLEntity("user-" + instance.ServiceAccountEmailAddress), Role: GoStorage.RoleReader}}
+	if err != nil {
+		return err
+	}
 
-	file2, err := os.Open(tmpName)
-	util.CheckError(err)
-
-	io.Copy(w, file2)
-
-	w.Close()
+	defer storageService.DeleteFile(tmpName)
 
 	operation, err = sqlService.Databases.Insert(configContainer.ProjectID, configContainer.Database.Instance, &sqladmin.Database{
 		Name: databaseName,
 	}).Do()
 
-	checkError(err)
-	waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "creation of database")
+	if err != nil {
+		return err
+	}
+
+	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "creation of database")
+
+	if err != nil {
+		return err
+	}
 
 	importFilePath := fmt.Sprintf(filepathPattern, configContainer.Database.Bucket, tmpName)
 
@@ -136,106 +167,16 @@ func CopyDatabaseByBranchName(branchName string, configContainer util.Config) er
 		Uri:      importFilePath,
 	}
 	operation, err = sqlService.Instances.Import(configContainer.ProjectID, configContainer.Database.Instance, importRequest).Do()
-	checkError(err)
-	waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "import of database")
+
+	if err != nil {
+		return err
+	}
+
+	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "import of database")
+	if err != nil {
+		return err
+	}
 	log.Print("Import for sql finished")
-	removeBucketACL(storageService, configContainer.Database.Bucket, instance.ServiceAccountEmailAddress)
 
-	err = storageService.Objects.Delete(configContainer.Database.Bucket, dumpFilename).Do()
-	err = storageService.Objects.Delete(configContainer.Database.Bucket, tmpName).Do()
-	checkError(err)
-	return nil
-}
-
-func downloadFromUrl(url string, filename string) {
-	fmt.Println("Downloading", url, "to", filename)
-
-	client := getClient()
-
-	output, err := os.Create(filename)
-	if err != nil {
-		log.Fatal("Error while creating", filename, "-", err)
-
-	}
-	defer output.Close()
-
-	response, err := client.Get(url)
-	if err != nil {
-		log.Fatal("Error while downloading", url, "-", err)
-	}
-	defer response.Body.Close()
-
-	n, err := io.Copy(output, response.Body)
-	if err != nil {
-		log.Fatal("Error while downloading", url, "-", err)
-	}
-
-	fmt.Println(n, "bytes downloaded.")
-}
-
-func waitForOperationToFinish(sqlService *sqladmin.Service, operation *sqladmin.Operation, projectID string, operationType string) {
-	var err error
-	for {
-		if operation.Status == "DONE" {
-			if operation.Error != nil && len(operation.Error.Errors) > 0 {
-				for _, err := range operation.Error.Errors {
-					log.Print(err)
-				}
-				log.Panicf("Operation %s failed", operationType)
-			}
-			break
-		}
-		operation, err = sqlService.Operations.Get(projectID, operation.Name).Do()
-		checkError(err)
-		log.Printf("Wait for operation %s to finish", operationType)
-		time.Sleep(time.Second * 5)
-	}
-}
-
-func setBucketACL(storageService *storage.Service, bucket string, serviceAccount string, role string) {
-	_, err := storageService.BucketAccessControls.Insert(bucket, &storage.BucketAccessControl{
-		Email:  serviceAccount,
-		Entity: "user-" + serviceAccount,
-		Role:   role,
-	}).Do()
-
-	checkError(err)
-}
-
-func removeBucketACL(storageService *storage.Service, bucket string, serviceAccount string) {
-	err := storageService.BucketAccessControls.Delete(bucket, "user-"+serviceAccount).Do()
-	checkError(err)
-}
-
-func checkError(e error) {
-	if e != nil {
-		log.Panic(e)
-	}
-}
-
-func getClient() *http.Client {
-	ctx := context.Background()
-
-	client, err := google.DefaultClient(ctx, storage.CloudPlatformScope)
-	util.CheckError(err)
-
-	return client
-}
-
-func createStorageService() *storage.Service {
-	storageService, err := storage.New(getClient())
-	checkError(err)
-
-	return storageService
-}
-
-func createSqlService() *sqladmin.Service {
-	ctx := context.Background()
-
-	client, err := google.DefaultClient(ctx, sqladmin.CloudPlatformScope)
-	checkError(err)
-	sqlService, err := sqladmin.New(client)
-	checkError(err)
-
-	return sqlService
+	return storageService.RemoveBucketACL(instance.ServiceAccountEmailAddress)
 }

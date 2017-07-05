@@ -1,42 +1,47 @@
 package registry
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os/exec"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/urfave/cli"
-	"golang.org/x/oauth2/google"
+	"kube-helper/loader"
+	"kube-helper/service"
 	"kube-helper/util"
 )
 
+var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
+var imagesService service.ImagesInterface = new(service.Images)
+var writer io.Writer = os.Stdout
+
 func CmdCleanup(c *cli.Context) error {
 
-	configContainer, err := util.LoadConfigFromPath(c.String("config"))
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
 
-	manifests, err := getImageTags()
+	manifests, err := imagesService.List(configContainer.Cleanup)
 
-	util.CheckError(err)
+	if err != nil {
+		return err
+	}
+	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
-	branches, err := util.GetBranches(configContainer.Bitbucket)
+	if err != nil {
+		return err
+	}
 
-	util.CheckError(err)
-
-	imagesToDelete := []string{}
+	manifestsForDeletion := map[string]service.Manifest{}
 
 	for manifestId, manifest := range manifests.Manifests {
 		cleanup := true
 		for _, tag := range manifest.Tags {
-			if strings.HasPrefix(tag, "staging-") == false {
-				continue
-			}
-
-			if tag == "staging-latest" {
+			if strings.HasPrefix(tag, "staging-") == false || tag == "staging-latest" {
 				cleanup = false
 				break
 			}
@@ -46,80 +51,37 @@ func CmdCleanup(c *cli.Context) error {
 				branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
 
 				//do not cleanup if branch exists
-				if inArray(branches, branchName) {
+				if util.InArray(branches, branchName) {
 					cleanup = false
 					break
 				}
-
 			}
 		}
 
 		if cleanup {
-			imagesToDelete = append(imagesToDelete, configContainer.Cleanup.ImagePath+":"+manifestId)
-
+			manifestsForDeletion[manifestId] = manifest
 		}
 	}
 
-	for _, image := range imagesToDelete {
-		otherCmd := exec.Command("gcloud", "beta", "container", "images", "delete", image, "--resolve-tag-to-digest", "--force-delete-tags")
-		stdoutStderr, err := otherCmd.CombinedOutput()
-		fmt.Printf("Output:%s\n", stdoutStderr)
-		util.CheckError(err)
+	for manifestId, manifest := range manifestsForDeletion {
+		for _, tag := range manifest.Tags {
+			err = imagesService.Untag(configContainer.Cleanup, tag)
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(writer, "Tag %s was removed from image. \n", tag)
+		}
+
+		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestId)
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Fprintf(writer, "Image %s was removed.\n", manifestId)
 	}
 
 	return nil
-}
-
-type Manifest struct {
-	LayerId string   `json:"layerId"`
-	Tags    []string `json:"tag"`
-}
-
-type TagCollection struct {
-	Name      string
-	Manifests map[string]Manifest `json:"manifest"`
-}
-
-func getImageTags() (*TagCollection, error) {
-	ctx := context.Background()
-
-	client, err := google.DefaultClient(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Get("https://eu.gcr.io/v2/n2170-container-engine-spike/php-app/tags/list")
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	var s = new(TagCollection)
-
-	if resp.StatusCode == 200 { // OK
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(bodyBytes, &s)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return s, nil
-}
-
-func inArray(haystack []string, needle string) bool {
-	for _, el := range haystack {
-		if el == needle {
-			return true
-		}
-	}
-
-	return false
 }

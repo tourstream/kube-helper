@@ -1,4 +1,4 @@
-package util
+package loader
 
 import (
 	"context"
@@ -9,17 +9,23 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-type Branch struct {
+type branch struct {
 	Name string `json:"name"`
 }
 
-type BranchesCollection struct {
+type branchesCollection struct {
 	Next     string   `json:"next"`
-	Branches []Branch `json:"values"`
+	Branches []branch `json:"values"`
 }
 
-func GetBranches(bitbucket Bitbucket) ([]string, error) {
+type BranchLoaderInterface interface {
+	LoadBranches(bitbucket Bitbucket) ([]string, error)
+}
 
+type BranchLoader struct {
+}
+
+func (b *BranchLoader) LoadBranches(bitbucket Bitbucket) ([]string, error) {
 	ctx := context.Background()
 	conf := &clientcredentials.Config{
 		ClientID:     bitbucket.ClientID,
@@ -37,14 +43,14 @@ func GetBranches(bitbucket Bitbucket) ([]string, error) {
 
 	defer resp.Body.Close()
 
-	var branches []string
+	branches := []string{}
 
 	if resp.StatusCode == 200 { // OK
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
-		var s = new(BranchesCollection)
+		var s = new(branchesCollection)
 		err = json.Unmarshal(bodyBytes, &s)
 		if err != nil {
 			return nil, err

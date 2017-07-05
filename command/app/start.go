@@ -1,125 +1,30 @@
 package app
 
 import (
-	"errors"
-	"fmt"
-	"log"
-	"regexp"
-
-	"kube-helper/util"
-
-	"github.com/spf13/afero"
 	"github.com/urfave/cli"
-	"google.golang.org/api/dns/v1"
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/unversioned"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/util/validation"
 )
-
-var universalDecoder runtime.Decoder
 
 func CmdStartUp(c *cli.Context) error {
 
-	kubenetesNamespace := getNamespace(c.Args().Get(0))
+	kubernetesNamespace := getNamespace(c.Args().Get(0))
 
-	configContainer, _ := util.LoadConfigFromPath(c.String("config"))
-
-	createUniveralDecoder()
-	createContainerService()
-	createClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
-
-	err := createApplicationByNamespace(kubenetesNamespace, configContainer)
-
-	util.CheckError(err)
-	return nil
-}
-
-func createUniveralDecoder() {
-	universalDecoder = api.Codecs.UniversalDecoder(unversioned.GroupVersion{
-		Version: "v1",
-	}, unversioned.GroupVersion{
-		Group:   "extensions",
-		Version: "v1beta1",
-	}, unversioned.GroupVersion{
-		Group: "batch",
-		Version: "v2alpha1",
-	})
-}
-
-func createApplicationByNamespace(kubenetesNamespace string, configContainer util.Config) error {
-	err := isValidNamespace(kubenetesNamespace)
+	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
 		return err
 	}
-	createNamespace(kubenetesNamespace)
-	err = createFromKubernetesConfig(kubenetesNamespace, configContainer.KubernetesConfigFilepath)
 
-	util.CheckError(err)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
 
-	createDNSEntries(createDNSService(), kubenetesNamespace, getLoadBalancerIP(kubenetesNamespace, 60), configContainer.DNS)
-
-	pods, err := clientset.CoreV1().Pods(kubenetesNamespace).List(v1.ListOptions{})
-	util.CheckError(err)
-	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
-
-	return nil
-}
-
-func createFromKubernetesConfig(kubenetesNamespace string, path string) error {
-	return util.ReplaceVariablesInFile(afero.NewOsFs(), path, func(splitLines []string) {
-		createKind(kubenetesNamespace, splitLines)
-	})
-}
-
-func createDNSEntries(dnsService *dns.Service, domainNamePart string, ip string, dnsConfig util.DNSConfig) {
-	if ip == "" {
-		log.Fatal("No Loadbalancer IP found.")
+	if err != nil {
+		return err
 	}
 
-	domain := domainNamePart + dnsConfig.DomainSuffix
+	appService, err := serviceBuilder.GetApplicationService(clientSet, kubernetesNamespace, configContainer)
 
-	var cnames []string
-
-	for _, cnameSuffix := range dnsConfig.CNameSuffix {
-		cnames = append(cnames, domainNamePart+cnameSuffix)
+	if err != nil {
+		return err
 	}
 
-	createDNSEntry := &dns.Change{
-		Additions: getResourceRecordSets(domain, cnames, ip),
-	}
-
-	_, err := dnsService.Changes.Create(dnsConfig.ProjectID, dnsConfig.ManagedZone, createDNSEntry).Do()
-	util.CheckError(err)
-	log.Printf("Created DNS Entries for %s", ip)
-}
-
-const namespaceNameFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
-
-var namespaceNameRegexp = regexp.MustCompile("^" + namespaceNameFmt + "$")
-
-func isValidNamespace(kubernetesNamespace string) error {
-	if !namespaceNameRegexp.MatchString(kubernetesNamespace) {
-		return errors.New(validation.RegexError(namespaceNameFmt, "my-name", "123-abc"))
-	}
-	return nil
-}
-
-func createNamespace(kubenetesNamespace string) {
-	if kubenetesNamespace != api.NamespaceDefault {
-		_, err := clientset.CoreV1().Namespaces().Create(
-			&v1.Namespace{
-				ObjectMeta: v1.ObjectMeta{
-					Name: kubenetesNamespace,
-				},
-			},
-		)
-		util.CheckError(err)
-
-		log.Printf("Namespace \"%s\" was generated\n", kubenetesNamespace)
-	} else {
-		log.Fatalf("Namespace \"%s\" was already generated\n", kubenetesNamespace)
-	}
+	return appService.CreateForNamespace()
 }
