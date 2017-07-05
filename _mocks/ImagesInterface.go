@@ -9,13 +9,13 @@ type ImagesInterface struct {
 	mock.Mock
 }
 
-// DeleteManifest provides a mock function with given fields: manifest
-func (_m *ImagesInterface) DeleteManifest(manifest string) error {
-	ret := _m.Called(manifest)
+// DeleteManifest provides a mock function with given fields: config, manifest
+func (_m *ImagesInterface) DeleteManifest(config loader.Cleanup, manifest string) error {
+	ret := _m.Called(config, manifest)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(manifest)
+	if rf, ok := ret.Get(0).(func(loader.Cleanup, string) error); ok {
+		r0 = rf(config, manifest)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -67,13 +67,13 @@ func (_m *ImagesInterface) List(config loader.Cleanup) (*service.TagCollection, 
 	return r0, r1
 }
 
-// Untag provides a mock function with given fields: tag
-func (_m *ImagesInterface) Untag(tag string) error {
-	ret := _m.Called(tag)
+// Untag provides a mock function with given fields: config, tag
+func (_m *ImagesInterface) Untag(config loader.Cleanup, tag string) error {
+	ret := _m.Called(config, tag)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(tag)
+	if rf, ok := ret.Get(0).(func(loader.Cleanup, string) error); ok {
+		r0 = rf(config, tag)
 	} else {
 		r0 = ret.Error(0)
 	}

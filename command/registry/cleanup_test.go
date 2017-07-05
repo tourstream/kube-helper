@@ -147,7 +147,7 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	}
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(collection, nil)
-	imagesLoaderMock.On("Untag", "staging-a-s-s-s-s-1").Return(errors.New("explode"))
+	imagesLoaderMock.On("Untag", config.Cleanup, "staging-a-s-s-s-s-1").Return(errors.New("explode"))
 
 	oldBranchLoader := branchLoader
 	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
@@ -203,9 +203,9 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	}
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(collection, nil)
-	imagesLoaderMock.On("Untag", "staging-a-s-s-s-s-1").Return(nil)
+	imagesLoaderMock.On("Untag", config.Cleanup, "staging-a-s-s-s-s-1").Return(nil)
 
-	imagesLoaderMock.On("DeleteManifest", "sha256:manifesthash2").Return(errors.New("explode"))
+	imagesLoaderMock.On("DeleteManifest", config.Cleanup, "sha256:manifesthash2").Return(errors.New("explode"))
 
 	oldBranchLoader := branchLoader
 	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
@@ -279,11 +279,11 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(collection, nil)
 	for _, expectedTag := range expectedTags {
-		imagesLoaderMock.On("Untag", expectedTag).Return(nil)
+		imagesLoaderMock.On("Untag", config.Cleanup, expectedTag).Return(nil)
 
 	}
 	for _, expectedManifest := range expectedManifests {
-		imagesLoaderMock.On("DeleteManifest", expectedManifest).Return(nil)
+		imagesLoaderMock.On("DeleteManifest", config.Cleanup, expectedManifest).Return(nil)
 
 	}
 

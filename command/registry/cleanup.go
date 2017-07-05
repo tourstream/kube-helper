@@ -65,7 +65,7 @@ func CmdCleanup(c *cli.Context) error {
 
 	for manifestId, manifest := range manifestsForDeletion {
 		for _, tag := range manifest.Tags {
-			err = imagesService.Untag(tag)
+			err = imagesService.Untag(configContainer.Cleanup, tag)
 
 			if err != nil {
 				return err
@@ -74,7 +74,7 @@ func CmdCleanup(c *cli.Context) error {
 			fmt.Fprintf(writer, "Tag %s was removed from image. \n", tag)
 		}
 
-		err = imagesService.DeleteManifest(manifestId)
+		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestId)
 
 		if err != nil {
 			return err

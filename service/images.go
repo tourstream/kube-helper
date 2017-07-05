@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strings"
 
-	"kube-helper/loader"
-
 	"golang.org/x/oauth2/google"
+	"kube-helper/loader"
+	"kube-helper/util"
 )
 
 type Manifest struct {
@@ -26,8 +26,8 @@ type TagCollection struct {
 type ImagesInterface interface {
 	List(config loader.Cleanup) (*TagCollection, error)
 	HasTag(config loader.Cleanup, tag string) (bool, error)
-	Untag(tag string) error
-	DeleteManifest(manifest string) error
+	Untag(config loader.Cleanup, tag string) error
+	DeleteManifest(config loader.Cleanup, manifest string) error
 }
 
 type Images struct {
@@ -90,22 +90,29 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 	return s, nil
 }
 
-func (i *Images) Untag(tag string) error {
-	return i.DeleteManifest(tag)
+func (i *Images) Untag(config loader.Cleanup, tag string) error {
+	return i.DeleteManifest(config, tag)
 }
 
-func (i *Images) DeleteManifest(manifest string) error {
+func (i *Images) DeleteManifest(config loader.Cleanup, manifest string) error {
 	err := i.setClient()
 
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://eu.gcr.io/v2/n2170-container-engine-spike/php-app/manifests/%s", manifest), nil)
+	imagePath := strings.Split(config.ImagePath, "/")
+
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://%s/v2/%s/%s/manifests/%s", imagePath[0], imagePath[1], imagePath[2], manifest), nil)
 	if err != nil {
 		return err
 	}
-	_, err = i.client.Do(req)
+	resp, err := i.client.Do(req)
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyString := string(bodyBytes)
+
+	util.Dump(bodyString)
 
 	return err
 }
