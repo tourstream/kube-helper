@@ -8,6 +8,7 @@ ADD https://github.com/upx/upx/releases/download/v3.94/upx-3.94-amd64_linux.tar.
 RUN tar -xf upx-3.94-amd64_linux.tar.xz
 RUN dep ensure
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o kube-helper .
+RUN apt-get update  && apt-get install xz-utils
 RUN upx-3.94-amd64_linux/upx --best --ultra-brute kube-helper
 
 FROM scratch
