@@ -4,14 +4,13 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
-	"kube-helper/command"
-	"kube-helper/loader"
-
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes/fake"
+	"kube-helper/_mocks"
+	"kube-helper/command"
+	"kube-helper/loader"
 )
 
 func TestCmdStartUpAllWithWrongConf(t *testing.T) {
@@ -181,6 +180,100 @@ func TestCmdStartUpAllWithErrorForLoadBranches(t *testing.T) {
 	assert.Equal(t, "explode\n", output)
 }
 
+func TestCmdStartUpAllWithoutDataBase(t *testing.T) {
+
+	appFS := afero.NewMemMapFs()
+
+	afero.WriteFile(appFS, ".env", []byte("key: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
+
+	oldHandler := cli.OsExiter
+	oldFileSystem := fileSystem
+
+	fileSystem = appFS
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		ProjectID: "test-project",
+		Zone:      "berlin",
+		ClusterID: "testing",
+		Cleanup: loader.Cleanup{
+			ImagePath: "eu.gcr.io/noop/assad",
+		},
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	fakeClientSet := new(fake.Clientset)
+	fakeAppService := new(_mocks.ApplicationServiceInterface)
+
+	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "branch-3", config).Return(fakeAppService, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "staging", config).Return(fakeAppService, nil)
+
+	fakeAppService.On("CreateForNamespace").Return(nil)
+
+	oldBranchLoader := branchLoader
+	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
+
+	branchesLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"branch-3", "branch-2", "branch-1", "master"}, nil)
+
+	branchLoader = branchesLoaderMock
+
+	oldImagesLoader := imagesService
+	imagesLoaderMock := new(_mocks.ImagesInterface)
+
+	imagesService = imagesLoaderMock
+
+	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-branch-2-latest").Return(false, errors.New("explode"))
+	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-branch-1-latest").Return(false, nil)
+	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-branch-3-latest").Return(true, nil)
+	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-latest").Return(true, nil)
+
+	oldDatabaseCopy := databaseCopy
+	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
+
+	databaseCopy = func(branchname string, config loader.Config) error {
+		return nil
+
+	}
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+		fileSystem = oldFileSystem
+		branchLoader = oldBranchLoader
+		imagesService = oldImagesLoader
+		databaseCopy = oldDatabaseCopy
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 1, exitCode)
+	}
+
+	output := captureOutput(func() {
+		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
+	})
+
+	bytes, err := afero.ReadFile(appFS, ".env")
+
+	stringDat := string(bytes)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "key: ###FOO###\n---\ntest: ###FOOBAR###", stringDat)
+
+	assert.Equal(t, "explode\n", output)
+}
+
 func TestCmdStartUpAll(t *testing.T) {
 
 	appFS := afero.NewMemMapFs()
@@ -203,6 +296,9 @@ func TestCmdStartUpAll(t *testing.T) {
 		ClusterID: "testing",
 		Cleanup: loader.Cleanup{
 			ImagePath: "eu.gcr.io/noop/assad",
+		},
+		Database: loader.Database{
+			Instance: "dummy",
 		},
 	}
 
