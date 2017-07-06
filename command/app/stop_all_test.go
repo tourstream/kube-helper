@@ -8,11 +8,11 @@ import (
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
 	testing2 "k8s.io/client-go/testing"
 	"kube-helper/command"
 	"kube-helper/loader"
 	"kube-helper/_mocks"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestCmdShutdownAllWithWrongConf(t *testing.T) {

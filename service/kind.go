@@ -6,16 +6,16 @@ import (
 	"log"
 	"strings"
 
-	"kube-helper/loader"
-	"kube-helper/util"
-
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/unversioned"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"k8s.io/client-go/pkg/runtime"
+	"kube-helper/loader"
+	"kube-helper/util"
 )
 
 type KindInterface interface {
@@ -32,12 +32,12 @@ type kindService struct {
 
 func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
 	k := new(kindService)
-	k.decoder = api.Codecs.UniversalDecoder(unversioned.GroupVersion{
+	k.decoder = api.Codecs.UniversalDecoder(schema.GroupVersion{
 		Version: "v1",
-	}, unversioned.GroupVersion{
+	}, schema.GroupVersion{
 		Group:   "extensions",
 		Version: "v1beta1",
-	}, unversioned.GroupVersion{
+	}, schema.GroupVersion{
 		Group:   "batch",
 		Version: "v2alpha1",
 	})
@@ -107,7 +107,7 @@ func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha
 		}
 	}
 
-	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Get(cronJob.Name)
+	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Get(cronJob.Name, meta_v1.GetOptions{})
 
 	if err != nil {
 		err = k.createCronJob(kubernetesNamespace, cronJob)
