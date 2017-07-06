@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 	"kube-helper/command/database"
+	"kube-helper/loader"
 )
 
 type Digest struct {
@@ -66,21 +67,24 @@ func CmdStartUpAll(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-
-		databaseName := database.GetDatabaseName(configContainer.Database, branch)
 		stringDat := string(dat)
 
-		stringDat += "\nDATABASE_NAME=" + databaseName + "\n"
+		if (loader.Database{}) != configContainer.Database {
+			databaseName := database.GetDatabaseName(configContainer.Database, branch)
+			stringDat += "\nDATABASE_NAME=" + databaseName + "\n"
+		}
 
 		err = afero.WriteFile(fileSystem, ".env", []byte(stringDat), 0644)
 		if err != nil {
 			return err
 		}
 
-		err = databaseCopy(branch, configContainer)
+		if (loader.Database{}) != configContainer.Database {
+			err = databaseCopy(branch, configContainer)
 
-		if err != nil {
-			fmt.Fprintln(writer, err)
+			if err != nil {
+				fmt.Fprintln(writer, err)
+			}
 		}
 
 		appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(branch), configContainer)
