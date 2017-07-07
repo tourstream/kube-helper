@@ -2,9 +2,7 @@
 
 [![Coverage Status][coveralls-image]][coveralls-url]
 
-
-
-#[![License][license-image]][license-url]
+[![License][license-image]][license-url]
 
 ***
 
@@ -19,5 +17,5 @@ More information will come...
 [travis-image]: https://travis-ci.org/tourstream/typo3-redis-lock-strategy.svg?branch=master
 [travis-url]: https://travis-ci.org/tourstream/typo3-redis-lock-strategy
 
-#[license-image]: https://img.shields.io/github/license/tourstream/typo3-redis-lock-strategy.svg?style=flat-square
-#[license-url]: https://github.com/tourstream/typo3-redis-lock-strategy/blob/master/LICENSE
+[license-image]: https://img.shields.io/github/license/tourstream/kube-helper.svg?style=flat-square
+[license-url]: https://github.com/tourstream/kube-helper/blob/master/LICENSE
