@@ -16,6 +16,7 @@ install:
   - mkdir -p ~/.config/gcloud
   - echo $APP_DEFAULT_CRED | base64 --decode >> ~/.config/gcloud/application_default_credentials.json
   - dep ensure
+  - go get github.com/mattn/goveralls github.com/modocache/gover
 
 before_script:
   # OSX as of El Capitan sets an exit trap that interacts poorly with our
@@ -29,4 +30,5 @@ before_script:
 script:
   - go build
   - go vet $PKGS
-  - set -e; for pkg in $PKGS; do go test -race -coverprofile=profile.out -covermode=atomic $pkg; if [[ -f profile.out ]]; then cat profile.out >> coverage.txt; rm profile.out; fi; done
+  - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' $PKGS | xargs -L 1 sh -c
+  - goveralls -coverprofile=gover.coverprofile -service=travis-ci -repotoken $COVERALLS_TOKEN
