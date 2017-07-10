@@ -130,7 +130,7 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 		JSON(response)
 
 	output := captureErrorOutput(func() {
-		command.RunTestCommand(CmdCopy, []string{"copy", "-c", "never.yml", "master"})
+		command.RunTestCommand(CmdCopy, []string{"copy", "-c", "never.yml", "foobar-testing"})
 	})
 
 	assert.Equal(t, output, "Database foobar already exists")
