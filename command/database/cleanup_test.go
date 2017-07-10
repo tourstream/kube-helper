@@ -478,3 +478,12 @@ func captureOutput(f func()) string {
 	f()
 	return buf.String()
 }
+
+func captureErrorOutput(f func()) string {
+	oldWriter := cli.ErrWriter
+	var buf bytes.Buffer
+	defer func() { cli.ErrWriter = oldWriter }()
+	cli.ErrWriter = &buf
+	f()
+	return buf.String()
+}
