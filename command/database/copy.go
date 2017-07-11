@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"kube-helper/loader"
 	"kube-helper/util"
-	"log"
 	"strings"
 
 	"github.com/urfave/cli"
 	"google.golang.org/api/sqladmin/v1beta4"
+	"github.com/spf13/afero"
 )
 
 const filenamePattern = "%s.sql.gz"
-const filepathPattern = "gs://%s/%s"
+const filePathPattern = "gs://%s/%s"
+
+var fileSystem = afero.NewOsFs()
 
 func CmdCopy(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
@@ -42,6 +44,11 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	databaseName := GetDatabaseName(configContainer.Database, branchName)
 
+	if databaseName == configContainer.Database.BaseName {
+		fmt.Fprint(cli.ErrWriter,"Copy to the same database makes no sense")
+		return nil
+	}
+
 	sqlService, err := serviceBuilder.GetSqlService()
 
 	if err != nil {
@@ -50,7 +57,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	database, _ := sqlService.Databases.Get(configContainer.ProjectID, configContainer.Database.Instance, databaseName).Do()
 	if database != nil {
-		log.Printf("Database %s already exists", databaseName)
+		fmt.Fprintf(cli.ErrWriter,"Database %s already exists", databaseName)
 		return nil
 	}
 	storageService, err := serviceBuilder.GetStorageService(configContainer.Database.Bucket)
@@ -72,7 +79,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	}
 
 	dumpFilename := fmt.Sprintf(filenamePattern, databaseName)
-	exportFilePath := fmt.Sprintf(filepathPattern, configContainer.Database.Bucket, dumpFilename)
+	exportFilePath := fmt.Sprintf(filePathPattern, configContainer.Database.Bucket, dumpFilename)
 
 	exportRequest := &sqladmin.InstancesExportRequest{}
 	exportRequest.ExportContext = &sqladmin.ExportContext{}
@@ -93,7 +100,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	defer storageService.DeleteFile(dumpFilename)
 
-	log.Print("Export for sql finished")
+	fmt.Fprintln(writer,"Export for sql finished")
 
 	downloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
 
@@ -112,7 +119,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	buf := make([]byte, 0, 1024*1024)
 	scanner.Buffer(buf, 1024*1024)
 	tmpName := fmt.Sprintf(filenamePattern, databaseName+"tmp")
-	writer, err := util.CreateGzWriter(tmpName)
+	gzWriter, err := util.CreateGzWriter(fileSystem, tmpName)
 
 	if err != nil {
 		return err
@@ -125,7 +132,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		if strings.HasPrefix(line, "CREATE DATABASE") || strings.HasPrefix(line, "USE") {
 			line = strings.Replace(line, configContainer.Database.BaseName, databaseName, 1)
 		}
-		_, err = writer.Write(line + "\n")
+		_, err = gzWriter.Write(line + "\n")
 		if err != nil {
 			return err
 		}
@@ -135,7 +142,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return scanner.Err()
 	}
 
-	writer.Close()
+	gzWriter.Close()
 	err = storageService.UploadFile(tmpName, tmpName, instance.ServiceAccountEmailAddress)
 
 	if err != nil {
@@ -158,7 +165,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return err
 	}
 
-	importFilePath := fmt.Sprintf(filepathPattern, configContainer.Database.Bucket, tmpName)
+	importFilePath := fmt.Sprintf(filePathPattern, configContainer.Database.Bucket, tmpName)
 
 	importRequest := &sqladmin.InstancesImportRequest{}
 	importRequest.ImportContext = &sqladmin.ImportContext{
@@ -176,7 +183,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	if err != nil {
 		return err
 	}
-	log.Print("Import for sql finished")
+	fmt.Fprintln(writer, "Import for sql finished")
 
 	return storageService.RemoveBucketACL(instance.ServiceAccountEmailAddress)
 }

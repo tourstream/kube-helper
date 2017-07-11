@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"os"
+	"github.com/spf13/afero"
 )
 
 type GzipWriterInterface interface {
@@ -11,14 +12,14 @@ type GzipWriterInterface interface {
 }
 
 type gzWriter struct {
-	file         *os.File
+	file         afero.File
 	gzWriter     *gzip.Writer
 	bufferWriter *bufio.Writer
 }
 
-func CreateGzWriter(name string) (gzWriter, error) {
+func CreateGzWriter(fileSystem afero.Fs,name string) (gzWriter, error) {
 
-	file, err := os.OpenFile(name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+	file, err := fileSystem.OpenFile(name, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
 	if err != nil {
 		return gzWriter{}, err
 	}

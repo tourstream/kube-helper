@@ -35,7 +35,7 @@ func waitForOperationToFinish(sqlService *sqladmin.Service, operation *sqladmin.
 			return err
 		}
 
-		fmt.Fprintf(writer, "Wait for operation %s to finish", operationType)
+		fmt.Fprintln(writer, fmt.Sprintf("Wait for operation %s to finish", operationType))
 		time.Sleep(time.Second * 5)
 	}
 	return nil
