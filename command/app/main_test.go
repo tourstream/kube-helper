@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/pkg/api/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
@@ -119,7 +120,7 @@ func captureLogOutput(f func()) string {
 
 func testNamespace(ns string) v1.Namespace {
 	return v1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: meta_v1.ObjectMeta{
 			Name: ns,
 		},
 	}

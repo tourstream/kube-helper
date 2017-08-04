@@ -7,15 +7,15 @@ import (
 	"regexp"
 	"time"
 
-	"kube-helper/loader"
-
 	"github.com/spf13/afero"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/util/validation"
+	"kube-helper/loader"
 )
 
 type ApplicationServiceInterface interface {
@@ -78,7 +78,7 @@ func (a *applicationService) CreateForNamespace() error {
 		return err
 	}
 
-	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(v1.ListOptions{})
+	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -142,7 +142,7 @@ func (a *applicationService) UpdateByNamespace() error {
 		return err
 	}
 
-	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(v1.ListOptions{})
+	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func (a *applicationService) UpdateByNamespace() error {
 }
 
 func (a *applicationService) HasNamespace() bool {
-	_, err := a.clientSet.CoreV1().Namespaces().Get(a.namespace)
+	_, err := a.clientSet.CoreV1().Namespaces().Get(a.namespace, meta_v1.GetOptions{})
 
 	if err != nil {
 		return false
@@ -164,7 +164,7 @@ func (a *applicationService) HasNamespace() bool {
 }
 
 func (a *applicationService) deleteNamespace() error {
-	return a.clientSet.CoreV1().Namespaces().Delete(a.namespace, &v1.DeleteOptions{})
+	return a.clientSet.CoreV1().Namespaces().Delete(a.namespace, &meta_v1.DeleteOptions{})
 }
 
 func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSConfig) error {
@@ -222,13 +222,13 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 
 func (a *applicationService) deleteIngress(projectID string) error {
 
-	list, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(v1.ListOptions{})
+	list, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
 	}
 
-	err = a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
+	err = a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -250,20 +250,20 @@ func (a *applicationService) deleteIngress(projectID string) error {
 }
 
 func (a *applicationService) deleteDeployment() error {
-	return a.clientSet.ExtensionsV1beta1().Deployments(a.namespace).DeleteCollection(&v1.DeleteOptions{}, v1.ListOptions{})
+	return a.clientSet.ExtensionsV1beta1().Deployments(a.namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
 
 }
 
 func (a *applicationService) deleteService() error {
 
-	list, err := a.clientSet.CoreV1().Services(a.namespace).List(v1.ListOptions{})
+	list, err := a.clientSet.CoreV1().Services(a.namespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
 	}
 
 	for _, service := range list.Items {
-		err = a.clientSet.CoreV1().Services(a.namespace).Delete(service.Name, &v1.DeleteOptions{})
+		err = a.clientSet.CoreV1().Services(a.namespace).Delete(service.Name, &meta_v1.DeleteOptions{})
 
 		if err != nil {
 			return err
@@ -277,7 +277,7 @@ func (a *applicationService) getLoadBalancerIP(maxRetries int) (string, error) {
 	var ip string
 
 	for retries := 0; retries < maxRetries; retries++ {
-		loadbalancer, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get("loadbalancer")
+		loadbalancer, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get("loadbalancer", meta_v1.GetOptions{})
 
 		if err != nil {
 			return "", err
@@ -359,7 +359,7 @@ func (a *applicationService) createNamespace() error {
 	if a.namespace != api.NamespaceDefault {
 		_, err := a.clientSet.CoreV1().Namespaces().Create(
 			&v1.Namespace{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: meta_v1.ObjectMeta{
 					Name: a.namespace,
 				},
 			},

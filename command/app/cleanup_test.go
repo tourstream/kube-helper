@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
 	testing2 "k8s.io/client-go/testing"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestCmdCleanupWithWrongConf(t *testing.T) {
