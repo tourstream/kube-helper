@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"kube-helper/loader"
 )
 

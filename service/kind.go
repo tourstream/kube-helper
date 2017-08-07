@@ -269,6 +269,10 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 
 	for idx, container := range containers {
 
+		if strings.Contains(container.Image, "gcr.io") == false {
+			continue
+		}
+
 		images, err := imagesService.List(loader.Cleanup{ImagePath: container.Image})
 
 		if err != nil {
