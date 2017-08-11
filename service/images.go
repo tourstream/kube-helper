@@ -8,19 +8,28 @@ import (
 	"net/http"
 	"strings"
 
-	"golang.org/x/oauth2/google"
 	"kube-helper/loader"
 	"kube-helper/util"
+
+	"golang.org/x/oauth2/google"
+	"sort"
 )
 
 type Manifest struct {
-	LayerId string   `json:"layerId"`
-	Tags    []string `json:"tag"`
+	LayerId       string   `json:"layerId"`
+	Tags          []string `json:"tag"`
+	TimeCreatedMs int64 `json:"timeCreatedMs,string"`
 }
 
 type TagCollection struct {
-	Name      string
-	Manifests map[string]Manifest `json:"manifest"`
+	Name            string
+	Manifests       map[string]Manifest `json:"manifest"`
+	SortedManifests []ManifestPair
+}
+
+type ManifestPair struct {
+	Key   string
+	Value Manifest
 }
 
 type ImagesInterface interface {
@@ -80,12 +89,22 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		err = json.Unmarshal(bodyBytes, &s)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	var ss []ManifestPair
+	for k, v := range s.Manifests {
+		ss = append(ss, ManifestPair{k, v})
+	}
+
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value.TimeCreatedMs > ss[j].Value.TimeCreatedMs
+	})
+
+	s.SortedManifests = ss
 
 	return s, nil
 }

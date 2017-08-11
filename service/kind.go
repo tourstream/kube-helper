@@ -282,10 +282,14 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 		switch strategy {
 		case "latest-branching":
 
-			latestTag := "staging-" + kubernetesNamespace + "-latest"
+			latestTag := loader.StagingEnvironment +"-" + kubernetesNamespace + "-latest"
 
-			if kubernetesNamespace == "staging" {
+			if kubernetesNamespace == loader.StagingEnvironment {
 				latestTag = "staging-latest"
+			}
+
+			if kubernetesNamespace == loader.ProductionEnvironment {
+				latestTag = "latest"
 			}
 
 			tag := getVersionForLatestTag(latestTag, images)

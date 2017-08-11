@@ -6,7 +6,7 @@ import (
 
 func CmdUpdate(c *cli.Context) error {
 
-	kubernetesNamespace := getNamespace(c.Args().Get(0))
+	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"))
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 

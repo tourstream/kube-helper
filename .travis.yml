@@ -4,8 +4,6 @@ matrix:
   include:
     - os: linux
       go: 1.8.x
-    - os: osx
-      go: 1.8.x
 
 go_import_path: kube-helper
 
@@ -19,12 +17,6 @@ install:
   - go get github.com/mattn/goveralls github.com/modocache/gover
 
 before_script:
-  # OSX as of El Capitan sets an exit trap that interacts poorly with our
-  # set -e below. So, unset the trap.
-  # Related: https://superuser.com/questions/1044130/why-am-i-having-how-can-i-fix-this-error-shell-session-update-command-not-f
-  - if [[ "$(go env GOHOSTOS)" == "darwin" ]]; then trap EXIT; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install bzr; fi
   - PKGS=$(go list ./... | grep -v /vendor/ | grep -v mocks )
 
 script:
