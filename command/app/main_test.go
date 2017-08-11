@@ -18,7 +18,11 @@ import (
 
 func TestGetNamespace(t *testing.T) {
 	for _, name := range []string{"", "master", "staging"} {
-		assert.Equal(t, getNamespace(name), "staging")
+		assert.Equal(t, getNamespace(name, false), "staging")
+	}
+
+	for _, name := range []string{"", "master", "staging"} {
+		assert.Equal(t, getNamespace(name, true), "production")
 	}
 }
 
