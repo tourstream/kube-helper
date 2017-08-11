@@ -207,7 +207,15 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 		return nil
 	}
 
-	domain := a.namespace + dnsConfig.DomainSuffix
+	var domain string
+
+	if a.namespace == loader.ProductionEnvironment {
+		domain = dnsConfig.BaseDomain
+	} else if dnsConfig.BaseDomain != "" {
+		domain = a.namespace + dnsConfig.DomainSpacer + dnsConfig.BaseDomain
+	} else {
+		domain = a.namespace + dnsConfig.DomainSuffix
+	}
 
 	var cnames []string
 
