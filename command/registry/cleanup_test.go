@@ -139,9 +139,12 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	imagesService = imagesLoaderMock
 
 	collection := &service.TagCollection{
-		Manifests: map[string]service.Manifest{
-			"sha256:manifesthash2": {
-				Tags: []string{"staging-a-s-s-s-s-1"},
+		SortedManifests: []service.ManifestPair{
+			{
+				Key: "sha256:manifesthash2",
+				Value: service.Manifest{
+					Tags: []string{"staging-a-s-s-s-s-1"},
+				},
 			},
 		},
 	}
@@ -195,9 +198,12 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	imagesService = imagesLoaderMock
 
 	collection := &service.TagCollection{
-		Manifests: map[string]service.Manifest{
-			"sha256:manifesthash2": {
-				Tags: []string{"staging-a-s-s-s-s-1"},
+		SortedManifests: []service.ManifestPair{
+			{
+				Key: "sha256:manifesthash2",
+				Value: service.Manifest{
+					Tags: []string{"staging-a-s-s-s-s-1"},
+				},
 			},
 		},
 	}
@@ -255,27 +261,68 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	imagesService = imagesLoaderMock
 
 	collection := &service.TagCollection{
-		Manifests: map[string]service.Manifest{
-			"sha256:manifesthash": {
-				Tags: []string{"tag-1", "tag-latest"},
+		SortedManifests: []service.ManifestPair{
+			{
+				Key: "sha256:manifesthash",
+				Value: service.Manifest{
+					Tags: []string{"tag-1", "tag-latest"},
+				},
 			},
-			"sha256:manifesthash2": {
-				Tags: []string{"staging-a-s-s-s-s-1"},
+			{
+				Key: "sha256:mainfest-staging-3",
+				Value: service.Manifest{
+					Tags: []string{"staging-31", "staging-latest"},
+				},
 			},
-			"sha256:manifesthash3": {
-				Tags: []string{"staging-a-s-s-s-s-2", "staging-tag-latest"},
+			{
+				Key: "sha256:mainfest-staging-30",
+				Value: service.Manifest{
+					Tags: []string{"staging-30"},
+				},
 			},
-			"sha256:manifesthash4": {
-				Tags: []string{"staging-branch-1-3"},
+			{
+				Key: "sha256:mainfest-staging-28",
+				Value: service.Manifest{
+					Tags: []string{"staging-28", "latest"},
+				},
 			},
-			"sha256:manifesthash5": {
-				Tags: []string{"staging-branch-1-4", "staging-branch-1-latest"},
+			{
+				Key: "sha256:mainfest-staging-27",
+				Value: service.Manifest{
+					Tags: []string{"staging-27"},
+				},
 			},
+			{
+				Key: "sha256:manifesthash2",
+				Value: service.Manifest{
+					Tags: []string{"staging-a-s-s-s-s-1"},
+				},
+			},
+			{
+				Key: "sha256:manifesthash3",
+				Value: service.Manifest{
+					Tags: []string{"staging-a-s-s-s-s-2", "staging-tag-latest"},
+				},
+			},
+			{
+				Key: "sha256:manifesthash4",
+				Value: service.Manifest{
+					Tags: []string{"staging-branch-1-3"},
+				},
+			},
+			{
+				Key: "sha256:manifesthash5",
+				Value: service.Manifest{
+					Tags: []string{"staging-branch-1-4", "staging-branch-1-latest"},
+				},
+			},
+
+
 		},
 	}
 
-	expectedTags := []string{"staging-a-s-s-s-s-1", "staging-a-s-s-s-s-2", "staging-tag-latest", "staging-branch-1-3"}
-	expectedManifests := []string{"sha256:manifesthash2", "sha256:manifesthash4", "sha256:manifesthash3"}
+	expectedTags := []string{"staging-27","staging-a-s-s-s-s-1", "staging-a-s-s-s-s-2", "staging-tag-latest", "staging-branch-1-3"}
+	expectedManifests := []string{"sha256:mainfest-staging-27","sha256:manifesthash2", "sha256:manifesthash4", "sha256:manifesthash3"}
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(collection, nil)
 	for _, expectedTag := range expectedTags {

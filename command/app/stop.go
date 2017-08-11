@@ -6,7 +6,7 @@ import (
 
 func CmdShutdown(c *cli.Context) error {
 
-	kubernetesNamespace := getNamespace(c.Args().Get(0))
+	kubernetesNamespace := getNamespace(c.Args().Get(0), false)
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {

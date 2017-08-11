@@ -15,13 +15,15 @@ var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 var imagesService service.ImagesInterface = new(service.Images)
 
-const stagingEnvironment = "staging"
-
-func getNamespace(branchName string) string {
+func getNamespace(branchName string, isProdution bool) string {
 	namespace := strings.ToLower(branchName)
 
-	if namespace == "" || namespace == stagingEnvironment || namespace == "master" {
-		namespace = stagingEnvironment
+	if isProdution {
+		return loader.ProductionEnvironment
+	}
+
+	if namespace == "" || namespace == loader.StagingEnvironment || namespace == "master" {
+		namespace = loader.StagingEnvironment
 	}
 
 	return namespace

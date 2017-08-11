@@ -19,7 +19,7 @@ func CmdHasNamespace(c *cli.Context) error {
 		return err
 	}
 
-	appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(c.Args().Get(0)), configContainer)
+	appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(c.Args().Get(0), false), configContainer)
 
 	if err != nil {
 		return err

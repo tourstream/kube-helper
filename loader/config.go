@@ -7,6 +7,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const StagingEnvironment = "staging"
+const ProductionEnvironment = "production"
+
 type ConfigLoaderInterface interface {
 	LoadConfigFromPath(filepath string) (Config, error)
 }
@@ -16,9 +19,11 @@ type Cleanup struct {
 }
 
 type DNSConfig struct {
-	ProjectID    string   `yaml:"project_id"`
-	ManagedZone  string   `yaml:"managed_zone"`
-	DomainSuffix string   `yaml:"domain_suffix"`
+	ProjectID    string `yaml:"project_id"`
+	ManagedZone  string `yaml:"managed_zone"`
+	DomainSuffix string `yaml:"domain_suffix"`
+	BaseDomain   string `yaml:"base_domain"`
+	DomainSpacer string `yaml:"domain_spacer"`
 	CNameSuffix  []string `yaml:"cname_suffix"`
 }
 

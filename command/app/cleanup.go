@@ -33,7 +33,7 @@ func CmdCleanUp(c *cli.Context) error {
 	usedNamespaces = append(usedNamespaces, "kube-system", "default")
 
 	for _, branchName := range branches {
-		usedNamespaces = append(usedNamespaces, getNamespace(branchName))
+		usedNamespaces = append(usedNamespaces, getNamespace(branchName, false))
 	}
 
 	list, err := clientSet.CoreV1().Namespaces().List(v1.ListOptions{})

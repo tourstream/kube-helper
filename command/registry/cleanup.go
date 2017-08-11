@@ -1,15 +1,17 @@
 package registry
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/urfave/cli"
 	"kube-helper/loader"
 	"kube-helper/service"
 	"kube-helper/util"
+
+	"github.com/urfave/cli"
+	"fmt"
+	"regexp"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
@@ -38,9 +40,26 @@ func CmdCleanup(c *cli.Context) error {
 
 	manifestsForDeletion := map[string]service.Manifest{}
 
-	for manifestId, manifest := range manifests.Manifests {
+	latestTagFound := false
+
+	rp := regexp.MustCompile("staging-\\d")
+
+	for _, manifestPair := range manifests.SortedManifests {
 		cleanup := true
-		for _, tag := range manifest.Tags {
+		for _, tag := range manifestPair.Value.Tags {
+
+			if tag == "latest" {
+				cleanup = false
+				latestTagFound = true
+				break
+
+			}
+
+			// only cleanup staging images which are older then the latest tag image
+			if !latestTagFound && rp.MatchString(tag) {
+				cleanup = false
+			}
+
 			if strings.HasPrefix(tag, "staging-") == false || tag == "staging-latest" {
 				cleanup = false
 				break
@@ -59,7 +78,7 @@ func CmdCleanup(c *cli.Context) error {
 		}
 
 		if cleanup {
-			manifestsForDeletion[manifestId] = manifest
+			manifestsForDeletion[manifestPair.Key] = manifestPair.Value
 		}
 	}
 

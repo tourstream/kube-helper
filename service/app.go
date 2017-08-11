@@ -171,8 +171,15 @@ func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSCon
 	if ip == "" {
 		return errors.New("No Loadbalancer IP found.")
 	}
+	var domain string
 
-	domain := a.namespace + dnsConfig.DomainSuffix
+	if a.namespace == loader.ProductionEnvironment {
+		domain = dnsConfig.BaseDomain
+	} else if dnsConfig.BaseDomain != "" {
+		domain = a.namespace + dnsConfig.DomainSpacer + dnsConfig.BaseDomain
+	} else {
+		domain = a.namespace + dnsConfig.DomainSuffix
+	}
 
 	var cnames []string
 
