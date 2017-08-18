@@ -41,6 +41,8 @@ type Images struct {
 	client *http.Client
 }
 
+const manifestPath = "https://%s/v2/%s/%s/manifests/%s"
+
 func (i *Images) HasTag(config loader.Cleanup, tag string) (bool, error) {
 	err := i.setClient()
 
@@ -49,7 +51,7 @@ func (i *Images) HasTag(config loader.Cleanup, tag string) (bool, error) {
 	}
 	imagePath := strings.Split(config.ImagePath, "/")
 
-	resp, err := i.client.Get(fmt.Sprintf("https://%s/v2/%s/%s/manifests/%s", imagePath[0], imagePath[1], imagePath[2], tag))
+	resp, err := i.client.Get(fmt.Sprintf(manifestPath, imagePath[0], imagePath[1], imagePath[2], tag))
 
 	if err != nil {
 		return false, err
@@ -120,7 +122,7 @@ func (i *Images) DeleteManifest(config loader.Cleanup, manifest string) error {
 
 	imagePath := strings.Split(config.ImagePath, "/")
 
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("https://%s/v2/%s/%s/manifests/%s", imagePath[0], imagePath[1], imagePath[2], manifest), nil)
+	req, err := http.NewRequest("DELETE", fmt.Sprintf(manifestPath, imagePath[0], imagePath[1], imagePath[2], manifest), nil)
 	if err != nil {
 		return err
 	}
