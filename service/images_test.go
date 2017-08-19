@@ -48,7 +48,7 @@ func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 	result, err := imageService.HasTag(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
 
-	assert.Error(t, err)
+	assert.NoError(t, err)
 	assert.False(t, result)
 
 }
@@ -218,4 +218,77 @@ func TestImages_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)
 
+}
+
+func TestImages_ListWithNoValidJson(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	response := `No Valid JSON
+	`
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Get("/v2/project/container/tags/list").
+		Reply(200).
+		JSON(response)
+
+	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
+
+	assert.Error(t, err, "Received unexpected error invalid character 'N' looking for beginning of value")
+	assert.Nil(t, result)
+
+}
+
+
+func TestImages_ListWithWrongStatusCode(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Get("/v2/project/container/tags/list").
+		Reply(400)
+
+	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
+
+	expected := new(TagCollection)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+
+}
+
+func TestImages_DeleteManifest(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Delete("/v2/project/container/manifests/branch-tag").
+		Reply(200)
+
+	err := imageService.DeleteManifest(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
+
+	assert.NoError(t, err)
 }
