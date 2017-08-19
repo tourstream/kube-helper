@@ -67,11 +67,7 @@ func (b *bucketService) SetBucketACL(serviceAccountEmailAddress string, role str
 		Role:   role,
 	}).Do()
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (b *bucketService) RemoveBucketACL(serviceAccountEmailAddress string) error {

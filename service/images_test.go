@@ -292,3 +292,23 @@ func TestImages_DeleteManifest(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestImages_Untag(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Delete("/v2/project/container/manifests/branch-tag").
+		Reply(200)
+
+	err := imageService.Untag(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
+
+	assert.NoError(t, err)
+}
