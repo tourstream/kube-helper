@@ -4,10 +4,12 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
 	StorageClient "cloud.google.com/go/storage"
 	"google.golang.org/api/storage/v1"
+	"github.com/spf13/afero"
 )
+
+var fileSystem = afero.NewOsFs()
 
 type BucketServiceInterface interface {
 	DownLoadFile(filename string, serviceAccountEmailAddress string) (io.Reader, error)
@@ -79,7 +81,7 @@ func (b *bucketService) UploadFile(targetFilename string, originalFilename strin
 	w := b.storageClient.Bucket(b.bucket).Object(targetFilename).NewWriter(context.Background())
 	w.ACL = []StorageClient.ACLRule{{Entity: StorageClient.ACLEntity("user-" + serviceAccountEmailAddress), Role: StorageClient.RoleReader}}
 
-	file, err := os.Open(originalFilename)
+	file, err := fileSystem.Open(originalFilename)
 	if err != nil {
 		return err
 	}

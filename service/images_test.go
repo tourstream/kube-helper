@@ -5,6 +5,7 @@ import (
 	"testing"
 	"kube-helper/loader"
 	"gopkg.in/h2non/gock.v1"
+	"errors"
 )
 
 func TestImages_HasTag(t *testing.T) {
@@ -237,11 +238,32 @@ func TestImages_ListWithNoValidJson(t *testing.T) {
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
 		Reply(200).
-		JSON(response)
+		BodyString(response)
 
 	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
 
-	assert.Error(t, err, "Received unexpected error invalid character 'N' looking for beginning of value")
+	assert.EqualError(t, err, "invalid character 'N' looking for beginning of value")
+	assert.Nil(t, result)
+}
+
+func TestImages_ListWithErrorToGetList(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Get("/v2/project/container/tags/list").
+		ReplyError(errors.New("ListError"))
+
+	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
+
+	assert.EqualError(t, err, "Get https://google-registry/v2/project/container/tags/list: ListError")
 	assert.Nil(t, result)
 
 }
@@ -291,6 +313,26 @@ func TestImages_DeleteManifest(t *testing.T) {
 	err := imageService.DeleteManifest(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
 
 	assert.NoError(t, err)
+}
+
+func TestImages_DeleteManifestWithError(t *testing.T) {
+
+	imageService := new(Images)
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Delete("/v2/project/container/manifests/branch-tag").
+		ReplyError(errors.New("DeleteError"))
+
+	err := imageService.DeleteManifest(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
+
+	assert.EqualError(t, err, "Delete https://google-registry/v2/project/container/manifests/branch-tag: DeleteError")
 }
 
 func TestImages_Untag(t *testing.T) {
