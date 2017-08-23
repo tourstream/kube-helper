@@ -84,7 +84,7 @@ func (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string)
 	case "ConfigMap":
 		return k.updateConfigMap(kubernetesNamespace, fileContent.(*v1.ConfigMap))
 	case "Service":
-		log.Print("Service update is not supported.")
+		return k.updateService(kubernetesNamespace, fileContent.(*v1.Service))
 	case "Deployment":
 		return k.updateDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
 	case "Ingress":
@@ -137,13 +137,32 @@ func (k *kindService) updateDeployment(kubernetesNamespace string, deployment *v
 		}
 	}
 
-	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Update(deployment)
+	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		return k.createDeployment(kubernetesNamespace, deployment)
+	}
+
+	_, err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Update(deployment)
 
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Deployment \"%s\" was updated\n", deployment.ObjectMeta.Name)
+
+	return nil
+}
+
+func (k *kindService) updateService(kubernetesNamespace string, service *v1.Service) error {
+
+	_, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Get(service.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		return k.createService(kubernetesNamespace, service)
+	}
+
+	log.Print("Service update is not supported.")
 
 	return nil
 }
@@ -282,7 +301,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 		switch strategy {
 		case "latest-branching":
 
-			latestTag := loader.StagingEnvironment +"-" + kubernetesNamespace + "-latest"
+			latestTag := loader.StagingEnvironment + "-" + kubernetesNamespace + "-latest"
 
 			if kubernetesNamespace == loader.StagingEnvironment {
 				latestTag = "staging-latest"
