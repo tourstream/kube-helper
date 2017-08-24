@@ -23,6 +23,7 @@ type ApplicationServiceInterface interface {
 	CreateForNamespace() error
 	UpdateByNamespace() error
 	HasNamespace() bool
+	GetDomain(dnsConfig loader.DNSConfig) string
 }
 
 type applicationService struct {
@@ -163,6 +164,18 @@ func (a *applicationService) HasNamespace() bool {
 	return true
 }
 
+func (a *applicationService) GetDomain(dnsConfig loader.DNSConfig) string {
+	if a.namespace == loader.ProductionEnvironment {
+		return dnsConfig.BaseDomain
+	}
+
+	if dnsConfig.BaseDomain != "" {
+		return a.namespace + dnsConfig.DomainSpacer + dnsConfig.BaseDomain
+	}
+
+	return a.namespace + dnsConfig.DomainSuffix
+}
+
 func (a *applicationService) deleteNamespace() error {
 	return a.clientSet.CoreV1().Namespaces().Delete(a.namespace, &meta_v1.DeleteOptions{})
 }
@@ -170,15 +183,6 @@ func (a *applicationService) deleteNamespace() error {
 func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSConfig) error {
 	if ip == "" {
 		return errors.New("No Loadbalancer IP found.")
-	}
-	var domain string
-
-	if a.namespace == loader.ProductionEnvironment {
-		domain = dnsConfig.BaseDomain
-	} else if dnsConfig.BaseDomain != "" {
-		domain = a.namespace + dnsConfig.DomainSpacer + dnsConfig.BaseDomain
-	} else {
-		domain = a.namespace + dnsConfig.DomainSuffix
 	}
 
 	var cnames []string
@@ -188,7 +192,7 @@ func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSCon
 	}
 
 	createDNSEntry := &dns.Change{
-		Additions: a.getResourceRecordSets(domain, cnames, ip),
+		Additions: a.getResourceRecordSets(a.GetDomain(dnsConfig), cnames, ip),
 	}
 
 	_, err := a.dnsService.Changes.Create(dnsConfig.ProjectID, dnsConfig.ManagedZone, createDNSEntry).Do()
@@ -207,16 +211,6 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 		return nil
 	}
 
-	var domain string
-
-	if a.namespace == loader.ProductionEnvironment {
-		domain = dnsConfig.BaseDomain
-	} else if dnsConfig.BaseDomain != "" {
-		domain = a.namespace + dnsConfig.DomainSpacer + dnsConfig.BaseDomain
-	} else {
-		domain = a.namespace + dnsConfig.DomainSuffix
-	}
-
 	var cnames []string
 
 	for _, cnameSuffix := range dnsConfig.CNameSuffix {
@@ -224,7 +218,7 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 	}
 
 	deleteDNSEntry := &dns.Change{
-		Deletions: a.getResourceRecordSets(domain, cnames, ip),
+		Deletions: a.getResourceRecordSets(a.GetDomain(dnsConfig), cnames, ip),
 	}
 
 	_, err := a.dnsService.Changes.Create(dnsConfig.ProjectID, dnsConfig.ManagedZone, deleteDNSEntry).Do()
