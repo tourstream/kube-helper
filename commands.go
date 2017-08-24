@@ -44,6 +44,18 @@ var Commands = []cli.Command{
 				},
 			},
 			{
+				Name:      "get-domain",
+				Usage:     "",
+				Action:    app.CmdGetDomain,
+				ArgsUsage: "[branchName]",
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+				},
+			},
+			{
 				Name:      "update",
 				Usage:     "",
 				Action:    app.CmdUpdate,
