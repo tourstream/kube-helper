@@ -6,23 +6,24 @@ import (
 	"strings"
 	"testing"
 	"errors"
+	"os"
 )
 
 func TestEnvReplace(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := envLoader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { envLoader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
-		return map[string]string{
-			"FOO":    "BAR",
-			"FOOBAR": "BARBAR",
-		}, nil
+	envLoader = func(filenames ...string) error {
+		os.Setenv("FOO", "BAR")
+		os.Setenv("FOOBAR", "BARBAR")
 
+		return nil
 	}
 
 	wasRun := false
@@ -41,6 +42,7 @@ func TestEnvReplace(t *testing.T) {
 }
 
 func TestEnvReplaceWithErrorForEnvReader(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
@@ -53,6 +55,7 @@ func TestEnvReplaceWithErrorForEnvReader(t *testing.T) {
 }
 
 func TestEnvReplaceWithErrorForFileOpen(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 
@@ -64,20 +67,20 @@ func TestEnvReplaceWithErrorForFileOpen(t *testing.T) {
 }
 
 func TestEnvReplaceWithErrorInCallback(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := envLoader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { envLoader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
-		return map[string]string{
-			"FOO":    "BAR",
-			"FOOBAR": "BARBAR",
-		}, nil
+	envLoader = func(filenames ...string) error {
+		os.Setenv("FOO", "BAR")
+		os.Setenv("FOOBAR", "BARBAR")
 
+		return nil
 	}
 
 	wasRun := false
@@ -92,17 +95,17 @@ func TestEnvReplaceWithErrorInCallback(t *testing.T) {
 }
 
 func TestEnvReplaceWithEnvironmentVariableNotFound(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOO###\ntest: ###FOOBAR###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := envLoader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { envLoader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
-		return map[string]string{}, nil
-
+	envLoader = func(filenames ...string) error {
+		return nil
 	}
 
 	err := ReplaceVariablesInFile(appFS, "src/mainFile", func(splitLines []string) error {return nil})
@@ -111,17 +114,17 @@ func TestEnvReplaceWithEnvironmentVariableNotFound(t *testing.T) {
 }
 
 func TestEnvReplaceWithEnvironmentVariableNotFoundForSplitFile(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("key: ###FOOBAR###\n---\ntest: ###FOO###"), 0644)
 
-	oldEnvReader := envReader
+	oldEnvReader := envLoader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
-	defer func() { envReader = oldEnvReader }()
+	defer func() { envLoader = oldEnvReader }()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
-		return map[string]string{}, nil
-
+	envLoader = func(filenames ...string) error {
+		return nil
 	}
 
 	err := ReplaceVariablesInFile(appFS, "src/mainFile", func(splitLines []string) error {return nil})

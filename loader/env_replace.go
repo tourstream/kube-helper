@@ -9,10 +9,11 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/afero"
+	"os"
+	"kube-helper/util"
 )
 
-
-var envReader = godotenv.Read
+var envLoader = godotenv.Load
 
 type callable func([]string) error
 
@@ -23,13 +24,14 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 	}
 	defer file.Close()
 
-	var myEnv map[string]string
-	myEnv, err = envReader()
+	err = envLoader()
 	if err != nil {
 		return err
 	}
 
 	splitLines := []string{}
+
+	util.Dump(os.Environ())
 
 	scanner := bufio.NewScanner(file)
 	re := regexp.MustCompile("###.*###")
@@ -39,7 +41,7 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 		subString := re.FindString(line)
 		if subString != "" {
 			variableName := strings.Replace(subString, "#", "", 6)
-			value, ok := myEnv[variableName]
+			value, ok := os.LookupEnv(variableName)
 
 			if ok == false {
 				variableNotFound = append(variableNotFound, variableName)

@@ -4,28 +4,29 @@ import (
 	"testing"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"os"
 )
 
 func TestConfig_LoadConfigFromPath(t *testing.T) {
+	os.Clearenv()
 	appFS := afero.NewMemMapFs()
 	// create test files and directories
 	afero.WriteFile(appFS, "src/mainFile", []byte("project_id: ###FOO###\n---\ntest: ###FOOBAR###"), 0644)
 
 	oldFileSystem := fileSystemWrapper
 	fileSystemWrapper = appFS
-	oldEnvReader := envReader
+	oldEnvReader := envLoader
 	// as we are exiting, revert sqlOpen back to oldSqlOpen at end of function
 	defer func() {
-		envReader = oldEnvReader
+		envLoader = oldEnvReader
 		fileSystemWrapper = oldFileSystem
 	}()
 
-	envReader = func(filenames ...string) (map[string]string, error) {
-		return map[string]string{
-			"FOO":    "BAR",
-			"FOOBAR": "BARBAR",
-		}, nil
+	envLoader = func(filenames ...string) error {
+		os.Setenv("FOO", "BAR")
+		os.Setenv("FOOBAR", "BARBAR")
 
+		return nil
 	}
 
 	config, err := new(Config).LoadConfigFromPath("src/mainFile")
