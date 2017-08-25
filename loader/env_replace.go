@@ -10,7 +10,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/spf13/afero"
 	"os"
-	"kube-helper/util"
 )
 
 var envLoader = godotenv.Load
@@ -30,8 +29,6 @@ func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall calla
 	}
 
 	splitLines := []string{}
-
-	util.Dump(os.Environ())
 
 	scanner := bufio.NewScanner(file)
 	re := regexp.MustCompile("###.*###")
