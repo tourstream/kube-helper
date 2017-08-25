@@ -95,6 +95,10 @@ func (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string)
 		log.Print("Ingress update is not supported.")
 	case "CronJob":
 		return k.updateCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
+	case "PersistentVolume":
+		return k.updatePersistentVolume(fileContent.(*v1.PersistentVolume))
+	case "PersistentVolumeClaim":
+		return k.updatePersistentVolumeClaim(kubernetesNamespace, fileContent.(*v1.PersistentVolumeClaim))
 	default:
 		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
 	}
@@ -191,6 +195,32 @@ func (k *kindService) updateConfigMap(kubernetesNamespace string, configMap *v1.
 	}
 
 	log.Printf("ConfigMap \"%s\" was updated\n", configMap.ObjectMeta.Name)
+
+	return nil
+}
+
+func (k *kindService) updatePersistentVolume(persistentVolume *v1.PersistentVolume) error {
+
+	_, err := k.clientSet.CoreV1().PersistentVolumes().Update(persistentVolume)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("PersistentVolume \"%s\" was updated\n", persistentVolume.ObjectMeta.Name)
+
+	return nil
+}
+
+func (k *kindService) updatePersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
+
+	_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Update(persistentVolumeClaim)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("PersistentVolumeClaim \"%s\" was updated\n", persistentVolumeClaim.ObjectMeta.Name)
 
 	return nil
 }
