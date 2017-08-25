@@ -16,6 +16,9 @@ import (
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"kube-helper/loader"
+	"google.golang.org/api/servicemanagement/v1"
+	"strings"
+	"os"
 )
 
 type ApplicationServiceInterface interface {
@@ -27,20 +30,22 @@ type ApplicationServiceInterface interface {
 }
 
 type applicationService struct {
-	clientSet      kubernetes.Interface
-	namespace      string
-	config         loader.Config
-	dnsService     *dns.Service
-	computeService *compute.Service
+	clientSet         kubernetes.Interface
+	namespace         string
+	config            loader.Config
+	dnsService        *dns.Service
+	computeService    *compute.Service
+	serviceManagement *servicemanagement.APIService
 }
 
-func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute.Service) ApplicationServiceInterface {
+func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
 	a := new(applicationService)
 	a.clientSet = client
 	a.namespace = namespace
 	a.config = config
 	a.dnsService = dnsService
 	a.computeService = computeService
+	a.serviceManagement = serviceManagement
 	return a
 }
 
@@ -58,6 +63,13 @@ func (a *applicationService) CreateForNamespace() error {
 	if a.HasNamespace() {
 		fmt.Printf("Namespace \"%s\" was already generated\n", a.namespace)
 		return nil
+	}
+
+	if a.config.Endpoints.Enabled {
+		err = a.setEndpointEnvVariables()
+		if err != nil {
+			return err
+		}
 	}
 
 	a.createNamespace()
@@ -137,6 +149,14 @@ func (a *applicationService) UpdateByNamespace() error {
 		return err
 	}
 
+	if a.config.Endpoints.Enabled {
+		err = a.setEndpointEnvVariables()
+		if err != nil {
+			return err
+		}
+
+	}
+
 	err = a.updateFromKubernetesConfig()
 
 	if err != nil {
@@ -174,6 +194,25 @@ func (a *applicationService) GetDomain(dnsConfig loader.DNSConfig) string {
 	}
 
 	return a.namespace + dnsConfig.DomainSuffix
+}
+
+func (a *applicationService) setEndpointEnvVariables() error {
+
+	domain := strings.TrimSuffix(a.GetDomain(a.config.DNS), ".")
+
+	configs, err := a.serviceManagement.Services.Configs.List(domain).Do()
+
+	if err != nil {
+		return err
+	}
+
+	err = os.Setenv("ENDPOINT_VERSION", configs.ServiceConfigs[0].Id)
+
+	if err != nil {
+		return err
+	}
+
+	return os.Setenv("ENDPOINT_DOMAIN", domain)
 }
 
 func (a *applicationService) deleteNamespace() error {

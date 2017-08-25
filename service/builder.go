@@ -17,6 +17,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"kube-helper/loader"
+	"google.golang.org/api/servicemanagement/v1"
 )
 
 type BuilderInterface interface {
@@ -127,7 +128,13 @@ func (h *Builder) GetApplicationService(client kubernetes.Interface, namespace s
 		return nil, err
 	}
 
-	return NewApplicationService(client, namespace, config, dnsService, computeService), nil
+	serviceManagementService, err := h.getServiceManagementService()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewApplicationService(client, namespace, config, dnsService, computeService, serviceManagementService), nil
 }
 
 func (h *Builder) GetClient(scope ...string) (*http.Client, error) {
@@ -148,4 +155,14 @@ func (h *Builder) getComputeService() (*compute.Service, error) {
 	}
 
 	return compute.New(httpClient)
+}
+
+func (h *Builder) getServiceManagementService() (*servicemanagement.APIService, error) {
+	httpClient, err := h.GetClient(compute.CloudPlatformScope)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return servicemanagement.New(httpClient)
 }
