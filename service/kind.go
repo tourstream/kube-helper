@@ -55,7 +55,43 @@ func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config 
 
 func (k *kindService) CleanupKind(kubernetesNamespace string) error {
 
-	return k.cleanupSecret(kubernetesNamespace)
+	err := k.cleanupSecret(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupConfigMaps(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupCronjobs(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupDeployment(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupIngresses(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupPersistentVolumeClaims(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	return k.cleanupServices(kubernetesNamespace)
 }
 
 func (k *kindService) cleanupSecret(kubernetesNamespace string) error {
@@ -81,6 +117,161 @@ func (k *kindService) cleanupSecret(kubernetesNamespace string) error {
 		}
 
 		log.Printf("Secret \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupConfigMaps(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.configMap) {
+		err = k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("ConfigMap \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupServices(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().Services(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.service) {
+		err = k.clientSet.CoreV1().Services(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Service \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
+	list, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.deployment) {
+		err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Deployment \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
+	list, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.ingress) {
+		err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Ingress \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
+
+	if !k.config.Cluster.AlphaSupport {
+		return nil
+	}
+
+	list, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.cronJob) {
+		err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("CronJob \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupPersistentVolumeClaims(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.persistentVolumeClaim) {
+		err = k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("PersistentVolumeClaim \"%s\" was removed.\n", name)
 	}
 
 	return nil

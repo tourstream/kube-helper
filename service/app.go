@@ -79,7 +79,7 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
-	if a.config.Cluster.Type == "google" {
+	if a.config.Cluster.Type == "gcp" {
 
 		ip, err := a.getLoadBalancerIP(60)
 
@@ -108,7 +108,15 @@ func (a *applicationService) Apply() error {
 func (a *applicationService) DeleteByNamespace() error {
 	ip, _ := a.getLoadBalancerIP(10)
 
-	err := a.deleteIngress(a.config.ProjectID)
+	var projectId string
+
+	projectId = a.config.ProjectID
+
+	if a.config.Cluster.Type == "gcp" {
+		projectId = a.config.Cluster.ProjectID
+	}
+
+	err := a.deleteIngress(projectId)
 
 	if err != nil {
 		return err
@@ -251,6 +259,10 @@ func (a *applicationService) deleteIngress(projectID string) error {
 
 	if err != nil {
 		return err
+	}
+
+	if projectID == "" {
+		return nil
 	}
 
 	for _, ingress := range list.Items {

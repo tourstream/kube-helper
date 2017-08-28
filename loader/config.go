@@ -48,10 +48,11 @@ type Endpoints struct {
 }
 
 type Cluster struct {
-	Type      string
-	ProjectID string `yaml:"project_id"`
-	ClusterID string `yaml:"cluster_id"`
-	Zone      string
+	Type         string
+	ProjectID    string `yaml:"project_id"`
+	ClusterID    string `yaml:"cluster_id"`
+	Zone         string
+	AlphaSupport bool `yaml:"alpha_support"`
 }
 
 type Config struct {

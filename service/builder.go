@@ -18,7 +18,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"kube-helper/loader"
 	"google.golang.org/api/servicemanagement/v1"
-	"fmt"
 	"k8s.io/client-go/tools/clientcmd"
 	"errors"
 )
@@ -52,9 +51,28 @@ func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, erro
 			return nil, errors.New("Failed loading client config")
 		}
 		return kubernetes.NewForConfig(config)
-	case "google":
-		fmt.Println("Linux.")
-		return nil, nil
+	case "gcp":
+		cluster, err := cService.Projects.Zones.Clusters.Get(config.Cluster.ProjectID, config.Cluster.Zone, config.Cluster.ClusterID).Do()
+		if err != nil {
+			return nil, err
+		}
+
+		kubernetesConfig := &rest.Config{
+			Host: "https://" + cluster.Endpoint,
+			AuthProvider: &clientcmdapi.AuthProviderConfig{
+				Name: "gcp",
+			},
+		}
+
+		ca, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		kubernetesConfig.TLSClientConfig.CAData = ca
+
+		return kubernetes.NewForConfig(kubernetesConfig)
 	default:
 		cluster, err := cService.Projects.Zones.Clusters.Get(config.ProjectID, config.Zone, config.ClusterID).Do()
 		if err != nil {
