@@ -72,17 +72,6 @@ var Commands = []cli.Command{
 				},
 			},
 			{
-				Name:   "startup-all",
-				Usage:  "",
-				Action: app.CmdStartUpAll,
-				Flags: []cli.Flag{
-					cli.StringFlag{
-						Name:  "config, c",
-						Usage: "Load config from `FILE`",
-					},
-				},
-			},
-			{
 				Name:      "shutdown",
 				Usage:     "",
 				Action:    app.CmdShutdown,
