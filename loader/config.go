@@ -77,5 +77,12 @@ func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
 		return yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 	})
 
+	if config.ProjectID != "" {
+		config.Cluster.ProjectID = config.ProjectID
+		config.Cluster.Zone = config.Zone
+		config.Cluster.ClusterID = config.ClusterID
+		config.Cluster.Type = "gcp"
+	}
+
 	return config, err
 }

@@ -113,8 +113,6 @@ func (a *applicationService) DeleteByNamespace() error {
 
 	var projectId string
 
-	projectId = a.config.ProjectID
-
 	if a.config.Cluster.Type == "gcp" {
 		projectId = a.config.Cluster.ProjectID
 	}
