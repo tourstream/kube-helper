@@ -24,18 +24,18 @@ func CmdCleanup(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	manifests, err := imagesService.List(configContainer.Cleanup)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	manifestsForDeletion := map[string]service.Manifest{}
@@ -87,7 +87,7 @@ func CmdCleanup(c *cli.Context) error {
 			err = imagesService.Untag(configContainer.Cleanup, tag)
 
 			if err != nil {
-				return err
+				return cli.NewExitError(err.Error(), 1)
 			}
 
 			fmt.Fprintf(writer, "Tag %s was removed from image. \n", tag)
@@ -96,7 +96,7 @@ func CmdCleanup(c *cli.Context) error {
 		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestId)
 
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 
 		fmt.Fprintf(writer, "Image %s was removed.\n", manifestId)

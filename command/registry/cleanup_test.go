@@ -34,7 +34,13 @@ func TestCmdCleanupWithWrongConfig(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output ,errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Empty(t, output)
+
+	assert.Equal(t, "explode\n", errOutput)
 }
 
 func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
@@ -70,7 +76,13 @@ func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output ,errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Empty(t, output)
+
+	assert.Equal(t, "explode\n", errOutput)
 }
 
 func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
@@ -114,7 +126,13 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output ,errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Empty(t, output)
+
+	assert.Equal(t, "explode\n", errOutput)
 }
 
 func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
@@ -170,9 +188,13 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	captureOutput(func() {
+	output ,errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
 	})
+
+	assert.Empty(t, output)
+
+	assert.Equal(t, "explode\n", errOutput)
 
 }
 
@@ -231,10 +253,10 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
 	})
-
+	assert.Equal(t, "explode\n", errOutput)
 	assert.Contains(t, output, fmt.Sprintf("Tag %s was removed from image.", "staging-a-s-s-s-s-1"))
 
 }
@@ -352,9 +374,11 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 		assert.Equal(t, 0, exitCode)
 	}
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
 	})
+
+	assert.Empty(t, errOutput)
 
 	for _, expectedTag := range expectedTags {
 		assert.Contains(t, output, fmt.Sprintf("Tag %s was removed from image.", expectedTag))
@@ -366,11 +390,17 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	}
 }
 
-func captureOutput(f func()) string {
+func captureOutput(f func()) (string, string) {
 	oldWriter := writer
+	oldErrWriter := cli.ErrWriter
 	var buf bytes.Buffer
-	defer func() { writer = oldWriter }()
+	var errBuf bytes.Buffer
+	defer func() { 
+		writer = oldWriter
+		cli.ErrWriter = oldErrWriter
+	}()
 	writer = &buf
+	cli.ErrWriter = &errBuf
 	f()
-	return buf.String()
+	return buf.String(), errBuf.String()
 }

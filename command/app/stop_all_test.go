@@ -53,7 +53,7 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 		return true, nil, errors.New("explode")
 	})
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -64,11 +64,12 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 	cli.OsExiter = func(exitCode int) {
 		assert.Equal(t, 1, exitCode)
 	}
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdShutdownAll, []string{"shutdown-all", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
@@ -99,7 +100,7 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
 	defer func() {
@@ -111,11 +112,12 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 	cli.OsExiter = func(exitCode int) {
 		assert.Equal(t, 1, exitCode)
 	}
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdShutdownAll, []string{"shutdown-all", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
@@ -147,7 +149,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
 	appService := new(_mocks.ApplicationServiceInterface)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
 
 	appService.On("DeleteByNamespace").Return(errors.New("explode"))
@@ -158,11 +160,10 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 		serviceBuilder = oldServiceBuilder
 	}()
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdShutdownAll, []string{"shutdown-all", "-c", "never.yml"})
 	})
 
 	assert.Equal(t, "explode", output)
+	assert.Empty(t, errOutput)
 }
-
-

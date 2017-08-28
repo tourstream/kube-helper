@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"kube-helper/loader"
-	"kube-helper/util"
-
 	"golang.org/x/oauth2/google"
 	"sort"
 )
@@ -126,12 +124,7 @@ func (i *Images) DeleteManifest(config loader.Cleanup, manifest string) error {
 	if err != nil {
 		return err
 	}
-	resp, err := i.client.Do(req)
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	bodyString := string(bodyBytes)
-
-	util.Dump(bodyString)
+	_, err = i.client.Do(req)
 
 	return err
 }

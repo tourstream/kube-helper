@@ -47,11 +47,19 @@ type Endpoints struct {
 	Enabled bool
 }
 
+type Cluster struct {
+	Type      string
+	ProjectID string `yaml:"project_id"`
+	ClusterID string `yaml:"cluster_id"`
+	Zone      string
+}
+
 type Config struct {
 	KubernetesConfigFilepath string `yaml:"kubernetes_config_filepath"`
 	ProjectID                string `yaml:"project_id"`
 	ClusterID                string `yaml:"cluster_id"`
 	Endpoints                Endpoints
+	Cluster                  Cluster
 	Zone                     string
 	Bitbucket                Bitbucket
 	Cleanup                  Cleanup

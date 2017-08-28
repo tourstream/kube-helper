@@ -4,27 +4,33 @@ import (
 	"github.com/urfave/cli"
 )
 
-func CmdStartUp(c *cli.Context) error {
+func CmdApply(c *cli.Context) error {
 
 	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"))
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
-	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	appService, err := serviceBuilder.GetApplicationService(clientSet, kubernetesNamespace, configContainer)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
-	return appService.CreateForNamespace()
+	err = appService.Apply()
+
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	return nil
 }

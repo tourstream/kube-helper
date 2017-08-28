@@ -8,8 +8,8 @@ type ApplicationServiceInterface struct {
 	mock.Mock
 }
 
-// CreateForNamespace provides a mock function with given fields:
-func (_m *ApplicationServiceInterface) CreateForNamespace() error {
+// Apply provides a mock function with given fields:
+func (_m *ApplicationServiceInterface) Apply() error {
 	ret := _m.Called()
 
 	var r0 error
@@ -59,20 +59,6 @@ func (_m *ApplicationServiceInterface) HasNamespace() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// UpdateByNamespace provides a mock function with given fields:
-func (_m *ApplicationServiceInterface) UpdateByNamespace() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
 	}
 
 	return r0

@@ -50,7 +50,7 @@ func TestCmdStartUpAllWithErrorForCopyEnv(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -63,11 +63,12 @@ func TestCmdStartUpAllWithErrorForCopyEnv(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "open .env: file does not exist\n", output)
+	assert.Equal(t, "open .env: file does not exist\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdStartUpAllWithErrorForRemoveEnv(t *testing.T) {
@@ -101,7 +102,7 @@ func TestCmdStartUpAllWithErrorForRemoveEnv(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -114,11 +115,12 @@ func TestCmdStartUpAllWithErrorForRemoveEnv(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "operation not permitted\n", output)
+	assert.Empty(t, output)
+	assert.Equal(t, "operation not permitted\n", errOutput)
 }
 
 func TestCmdStartUpAllWithErrorForLoadBranches(t *testing.T) {
@@ -152,7 +154,7 @@ func TestCmdStartUpAllWithErrorForLoadBranches(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(_mocks.BranchLoaderInterface)
@@ -173,11 +175,12 @@ func TestCmdStartUpAllWithErrorForLoadBranches(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Empty(t, output)
+	assert.Equal(t, "explode\n", errOutput)
 }
 
 func TestCmdStartUpAllWithoutDataBase(t *testing.T) {
@@ -215,11 +218,11 @@ func TestCmdStartUpAllWithoutDataBase(t *testing.T) {
 	fakeClientSet := new(fake.Clientset)
 	fakeAppService := new(_mocks.ApplicationServiceInterface)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "branch-3", config).Return(fakeAppService, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "staging", config).Return(fakeAppService, nil)
 
-	fakeAppService.On("CreateForNamespace").Return(nil)
+	fakeAppService.On("Apply").Return(nil)
 
 	oldBranchLoader := branchLoader
 	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
@@ -260,9 +263,11 @@ func TestCmdStartUpAllWithoutDataBase(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
 	})
+
+	assert.Empty(t, errOutput)
 
 	bytes, err := afero.ReadFile(appFS, ".env")
 
@@ -312,11 +317,11 @@ func TestCmdStartUpAll(t *testing.T) {
 	fakeClientSet := new(fake.Clientset)
 	fakeAppService := new(_mocks.ApplicationServiceInterface)
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "branch-3", config).Return(fakeAppService, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "staging", config).Return(fakeAppService, nil)
 
-	fakeAppService.On("CreateForNamespace").Return(nil)
+	fakeAppService.On("Apply").Return(nil)
 
 	oldBranchLoader := branchLoader
 	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
@@ -357,9 +362,10 @@ func TestCmdStartUpAll(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdStartUpAll, []string{"startup-all", "-c", "never.yml"})
 	})
 
+	assert.Empty(t, errOutput)
 	assert.Equal(t, "explode\n", output)
 }

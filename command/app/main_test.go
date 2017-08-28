@@ -3,8 +3,6 @@ package app
 import (
 	"bytes"
 	"errors"
-	"log"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,11 +44,12 @@ func helperTestCmdHasWrongConfigReturned(t *testing.T, Action interface{}, argum
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(Action, arguments)
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 
 }
 
@@ -76,7 +75,7 @@ func helperTestCmdlWithErrorForClientSet(t *testing.T, Action interface{}, argum
 
 	serviceBuilder = serviceBuilderMock
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(nil, errors.New("explode"))
+	serviceBuilderMock.On("GetClientSet", config).Return(nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -88,38 +87,27 @@ func helperTestCmdlWithErrorForClientSet(t *testing.T, Action interface{}, argum
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(Action, arguments)
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 
 }
-
-func captureErrorOutput(f func()) string {
-	oldWriter := cli.ErrWriter
-	var buf bytes.Buffer
-	defer func() { cli.ErrWriter = oldWriter }()
-	cli.ErrWriter = &buf
-	f()
-	return buf.String()
-}
-
-func captureOutput(f func()) string {
+func captureOutput(f func()) (string, string) {
 	oldWriter := writer
+	oldErrWriter := cli.ErrWriter
 	var buf bytes.Buffer
-	defer func() { writer = oldWriter }()
+	var errBuf bytes.Buffer
+	defer func() {
+		writer = oldWriter
+		cli.ErrWriter = oldErrWriter
+	}()
 	writer = &buf
+	cli.ErrWriter = &errBuf
 	f()
-	return buf.String()
-}
-
-func captureLogOutput(f func()) string {
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	f()
-	log.SetOutput(os.Stderr)
-	return buf.String()
+	return buf.String(), errBuf.String()
 }
 
 func testNamespace(ns string) v1.Namespace {

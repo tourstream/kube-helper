@@ -34,7 +34,12 @@ func TestCmdCleanupWithWrongConfig(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithWrongSqlService(t *testing.T) {
@@ -63,7 +68,12 @@ func TestCmdCleanupWithWrongSqlService(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithFailureLoadBranches(t *testing.T) {
@@ -102,7 +112,12 @@ func TestCmdCleanupWithFailureLoadBranches(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
@@ -158,7 +173,12 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 		Reply(404).
 		JSON(map[string]string{"foo": "bar"})
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "googleapi: got HTTP response code 404 with body: {\"foo\":\"bar\"}\n\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithFailureForDelete(t *testing.T) {
@@ -250,7 +270,12 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		Reply(404).
 		JSON(map[string]string{"foo": "bar"})
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t,"googleapi: got HTTP response code 404 with body: {\"foo\":\"bar\"}\n\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
@@ -367,7 +392,12 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 		Reply(200).
 		JSON(operationResponse)
 
-	command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "Operation delete of database failed\n", errOutput)
+	assert.Contains(t, output, "Wait for operation delete of database to finish\n")
 }
 
 func TestCmdCleanup(t *testing.T) {
@@ -463,27 +493,26 @@ func TestCmdCleanup(t *testing.T) {
 		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/landing_page_generator").
 		Reply(200).
 		JSON(operationResponse)
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
 	})
+
+	assert.Empty(t, errOutput)
 
 	assert.Equal(t, "Removed database landing_page_generator", output)
 }
 
-func captureOutput(f func()) string {
+func captureOutput(f func()) (string, string) {
 	oldWriter := writer
+	oldErrWriter := cli.ErrWriter
 	var buf bytes.Buffer
-	defer func() { writer = oldWriter }()
+	var errBuf bytes.Buffer
+	defer func() {
+		writer = oldWriter
+		cli.ErrWriter = oldErrWriter
+	}()
 	writer = &buf
+	cli.ErrWriter = &errBuf
 	f()
-	return buf.String()
-}
-
-func captureErrorOutput(f func()) string {
-	oldWriter := cli.ErrWriter
-	var buf bytes.Buffer
-	defer func() { cli.ErrWriter = oldWriter }()
-	cli.ErrWriter = &buf
-	f()
-	return buf.String()
+	return buf.String(), errBuf.String()
 }

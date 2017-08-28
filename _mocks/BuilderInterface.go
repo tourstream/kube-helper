@@ -65,13 +65,13 @@ func (_m *BuilderInterface) GetClient(scope ...string) (*http.Client, error) {
 	return r0, r1
 }
 
-// GetClientSet provides a mock function with given fields: projectID, zone, clusterId
-func (_m *BuilderInterface) GetClientSet(projectID string, zone string, clusterId string) (kubernetes.Interface, error) {
-	ret := _m.Called(projectID, zone, clusterId)
+// GetClientSet provides a mock function with given fields: config
+func (_m *BuilderInterface) GetClientSet(config loader.Config) (kubernetes.Interface, error) {
+	ret := _m.Called(config)
 
 	var r0 kubernetes.Interface
-	if rf, ok := ret.Get(0).(func(string, string, string) kubernetes.Interface); ok {
-		r0 = rf(projectID, zone, clusterId)
+	if rf, ok := ret.Get(0).(func(loader.Config) kubernetes.Interface); ok {
+		r0 = rf(config)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(kubernetes.Interface)
@@ -79,8 +79,8 @@ func (_m *BuilderInterface) GetClientSet(projectID string, zone string, clusterI
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
-		r1 = rf(projectID, zone, clusterId)
+	if rf, ok := ret.Get(1).(func(loader.Config) error); ok {
+		r1 = rf(config)
 	} else {
 		r1 = ret.Error(1)
 	}

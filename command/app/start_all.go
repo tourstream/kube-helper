@@ -22,30 +22,30 @@ func CmdStartUpAll(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
-	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = cp(".env_dist", ".env")
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = fileSystem.Remove(".env")
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	for _, branch := range branches {
@@ -65,7 +65,7 @@ func CmdStartUpAll(c *cli.Context) error {
 		}
 		dat, err := afero.ReadFile(fileSystem, ".env_dist")
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 		stringDat := string(dat)
 
@@ -76,7 +76,7 @@ func CmdStartUpAll(c *cli.Context) error {
 
 		err = afero.WriteFile(fileSystem, ".env", []byte(stringDat), 0644)
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 
 		if (loader.Database{}) != configContainer.Database {
@@ -90,10 +90,10 @@ func CmdStartUpAll(c *cli.Context) error {
 		appService, err := serviceBuilder.GetApplicationService(clientSet, getNamespace(branch, false), configContainer)
 
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 
-		err = appService.CreateForNamespace()
+		err = appService.Apply()
 
 		if err != nil {
 			fmt.Fprintln(writer, err)

@@ -41,7 +41,7 @@ func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset()
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
 	oldHandler := cli.OsExiter
@@ -57,11 +57,12 @@ func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 		configLoader = oldConfigLoader
 	}()
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdGetDomain, []string{"get-domain", "-c", "never.yml", "foobar"})
 	})
 
-	assert.Equal(t, output, "explode\n")
+	assert.Equal(t, errOutput, "explode\n")
+	assert.Empty(t, output)
 
 }
 
@@ -90,7 +91,7 @@ func TestCmdGetDomain(t *testing.T) {
 
 	appService.On("GetDomain", loader.DNSConfig{}).Return("domain")
 
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
 
 	oldHandler := cli.OsExiter
@@ -104,9 +105,10 @@ func TestCmdGetDomain(t *testing.T) {
 		configLoader = oldConfigLoader
 	}()
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdGetDomain, []string{"get-domain", "-c", "never.yml", "foobar"})
 	})
 
+	assert.Empty(t, errOutput)
 	assert.Equal(t, output, "domain")
 }
