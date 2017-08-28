@@ -560,15 +560,9 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 		return nil
 	}
 
-	_, err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Update(ingress)
-
-	if err != nil {
-		return err
-	}
-
 	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 
-	log.Printf("Ingress \"%s\" was updated\n", ingress.Name)
+	log.Print("Ingress update is not supported.")
 
 	return nil
 }

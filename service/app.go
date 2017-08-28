@@ -60,7 +60,10 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
+	update := true
+
 	if !a.HasNamespace() {
+		update = false
 		err = a.createNamespace()
 		if err != nil {
 			return err
@@ -79,7 +82,7 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
-	if a.config.Cluster.Type == "gcp" {
+	if !update && a.config.Cluster.Type == "gcp" {
 
 		ip, err := a.getLoadBalancerIP(60)
 
