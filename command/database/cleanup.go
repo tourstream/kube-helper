@@ -16,24 +16,24 @@ func CmdCleanup(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	sqlService, err := serviceBuilder.GetSqlService()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	branches, err := branchLoader.LoadBranches(configContainer.Bitbucket)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 	databases, err := getDatabases(sqlService, configContainer.ProjectID, configContainer.Database.Instance)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	for _, database := range databases {
@@ -46,11 +46,11 @@ func CmdCleanup(c *cli.Context) error {
 		if util.InArray(branches, branch) == false {
 			operation, err := sqlService.Databases.Delete(configContainer.ProjectID, configContainer.Database.Instance, database).Do()
 			if err != nil {
-				return err
+				return cli.NewExitError(err.Error(), 1)
 			}
 			err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "delete of database")
 			if err != nil {
-				return err
+				return cli.NewExitError(err.Error(), 1)
 			}
 
 			fmt.Fprintf(writer, "Removed database %s", database)

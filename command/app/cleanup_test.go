@@ -41,7 +41,7 @@ func TestCmdCleanupWithErrorForGetBranches(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	serviceBuilderMock := new(_mocks.BuilderInterface)
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fake.NewSimpleClientset(), nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fake.NewSimpleClientset(), nil)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -63,11 +63,12 @@ func TestCmdCleanupWithErrorForGetBranches(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanUp, []string{"cleanup", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithErrorForGetNamespaces(t *testing.T) {
@@ -94,7 +95,7 @@ func TestCmdCleanupWithErrorForGetNamespaces(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	serviceBuilderMock := new(_mocks.BuilderInterface)
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -116,11 +117,12 @@ func TestCmdCleanupWithErrorForGetNamespaces(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanUp, []string{"cleanup", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
@@ -147,7 +149,7 @@ func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	serviceBuilderMock := new(_mocks.BuilderInterface)
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
 	serviceBuilder = serviceBuilderMock
@@ -170,11 +172,12 @@ func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanUp, []string{"cleanup", "-c", "never.yml"})
 	})
 
-	assert.Equal(t, "explode\n", output)
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
 }
 
 func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
@@ -204,7 +207,7 @@ func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	serviceBuilderMock := new(_mocks.BuilderInterface)
-	serviceBuilderMock.On("GetClientSet", "test-project", "berlin", "testing").Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
 
 	serviceBuilder = serviceBuilderMock
@@ -223,9 +226,10 @@ func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
 		serviceBuilder = oldServiceBuilder
 	}()
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCleanUp, []string{"cleanup", "-c", "never.yml"})
 	})
 
 	assert.Equal(t, "explode", output)
+	assert.Empty(t, errOutput)
 }

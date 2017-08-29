@@ -12,19 +12,19 @@ func CmdShutdownAll(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
-	clientSet, err := serviceBuilder.GetClientSet(configContainer.ProjectID, configContainer.Zone, configContainer.ClusterID)
+	clientSet, err := serviceBuilder.GetClientSet(configContainer)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	list, err := clientSet.CoreV1().Namespaces().List(v1.ListOptions{})
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	for _, namespace := range list.Items {
@@ -35,7 +35,7 @@ func CmdShutdownAll(c *cli.Context) error {
 		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
 
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 
 		err = appService.DeleteByNamespace()

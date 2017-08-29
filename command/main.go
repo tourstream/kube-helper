@@ -26,6 +26,10 @@ func RunTestCommand(Action interface{}, arguments []string) {
 				Name:  "config, c",
 				Usage: "Load config from `FILE`",
 			},
+			cli.BoolFlag{
+				Name: "production, p",
+				Usage: "update production",
+			},
 		},
 	}
 

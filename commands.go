@@ -56,9 +56,9 @@ var Commands = []cli.Command{
 				},
 			},
 			{
-				Name:      "update",
+				Name:      "apply",
 				Usage:     "",
-				Action:    app.CmdUpdate,
+				Action:    app.CmdApply,
 				ArgsUsage: "[branchName]",
 				Flags: []cli.Flag{
 					cli.StringFlag{
@@ -68,33 +68,6 @@ var Commands = []cli.Command{
 					cli.BoolFlag{
 						Name: "production, p",
 						Usage: "update production",
-					},
-				},
-			},
-			{
-				Name:      "startup",
-				Usage:     "",
-				Action:    app.CmdStartUp,
-				ArgsUsage: "[branchName]",
-				Flags: []cli.Flag{
-					cli.StringFlag{
-						Name:  "config, c",
-						Usage: "Load config from `FILE`",
-					},
-					cli.BoolFlag{
-						Name: "production, p",
-						Usage: "Start production",
-					},
-				},
-			},
-			{
-				Name:   "startup-all",
-				Usage:  "",
-				Action: app.CmdStartUpAll,
-				Flags: []cli.Flag{
-					cli.StringFlag{
-						Name:  "config, c",
-						Usage: "Load config from `FILE`",
 					},
 				},
 			},

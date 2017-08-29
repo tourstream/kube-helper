@@ -18,10 +18,12 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"kube-helper/loader"
 	"google.golang.org/api/servicemanagement/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	"errors"
 )
 
 type BuilderInterface interface {
-	GetClientSet(projectID string, zone string, clusterId string) (kubernetes.Interface, error)
+	GetClientSet(config loader.Config) (kubernetes.Interface, error)
 	GetDNSService() (*dns.Service, error)
 	GetSqlService() (*sqladmin.Service, error)
 	GetStorageService(bucket string) (BucketServiceInterface, error)
@@ -32,34 +34,48 @@ type BuilderInterface interface {
 type Builder struct {
 }
 
-func (h *Builder) GetClientSet(projectID string, zone string, clusterId string) (kubernetes.Interface, error) {
+func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, error) {
 	cService, err := h.getContainerService()
 
 	if err != nil {
 		return nil, err
 	}
 
-	cluster, err := cService.Projects.Zones.Clusters.Get(projectID, zone, clusterId).Do()
-	if err != nil {
-		return nil, err
+	switch clusterType := config.Cluster.Type; clusterType {
+	case "local":
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{}
+		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+		config, err := kubeConfig.ClientConfig()
+		if err != nil {
+			return nil, errors.New("Failed loading client config")
+		}
+		return kubernetes.NewForConfig(config)
+	case "gcp":
+		fallthrough
+	default:
+		cluster, err := cService.Projects.Zones.Clusters.Get(config.Cluster.ProjectID, config.Cluster.Zone, config.Cluster.ClusterID).Do()
+		if err != nil {
+			return nil, err
+		}
+
+		kubernetesConfig := &rest.Config{
+			Host: "https://" + cluster.Endpoint,
+			AuthProvider: &clientcmdapi.AuthProviderConfig{
+				Name: "gcp",
+			},
+		}
+
+		ca, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
+
+		if err != nil {
+			return nil, err
+		}
+
+		kubernetesConfig.TLSClientConfig.CAData = ca
+
+		return kubernetes.NewForConfig(kubernetesConfig)
 	}
-
-	kubernetesConfig := &rest.Config{
-		Host: "https://" + cluster.Endpoint,
-		AuthProvider: &clientcmdapi.AuthProviderConfig{
-			Name: "gcp",
-		},
-	}
-
-	ca, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
-
-	if err != nil {
-		return nil, err
-	}
-
-	kubernetesConfig.TLSClientConfig.CAData = ca
-
-	return kubernetes.NewForConfig(kubernetesConfig)
 }
 
 func (h *Builder) getContainerService() (*container.Service, error) {

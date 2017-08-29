@@ -47,11 +47,20 @@ type Endpoints struct {
 	Enabled bool
 }
 
+type Cluster struct {
+	Type         string
+	ProjectID    string `yaml:"project_id"`
+	ClusterID    string `yaml:"cluster_id"`
+	Zone         string
+	AlphaSupport bool `yaml:"alpha_support"`
+}
+
 type Config struct {
 	KubernetesConfigFilepath string `yaml:"kubernetes_config_filepath"`
 	ProjectID                string `yaml:"project_id"`
 	ClusterID                string `yaml:"cluster_id"`
 	Endpoints                Endpoints
+	Cluster                  Cluster
 	Zone                     string
 	Bitbucket                Bitbucket
 	Cleanup                  Cleanup
@@ -67,6 +76,13 @@ func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
 	err := ReplaceVariablesInFile(fileSystemWrapper, filepath, func(splitLines []string) error {
 		return yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 	})
+
+	if config.ProjectID != "" {
+		config.Cluster.ProjectID = config.ProjectID
+		config.Cluster.Zone = config.Zone
+		config.Cluster.ClusterID = config.ClusterID
+		config.Cluster.Type = "gcp"
+	}
 
 	return config, err
 }

@@ -129,11 +129,13 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 		Reply(200).
 		JSON(response)
 
-	output := captureErrorOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCopy, []string{"copy", "-c", "never.yml", "foobar-testing"})
 	})
 
-	assert.Equal(t, output, "Database foobar-testing already exists")
+	assert.Equal(t, "Database foobar-testing already exists", errOutput)
+
+	assert.Empty(t, output)
 
 }
 
@@ -365,9 +367,11 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 		Reply(201).
 		JSON(importRespone)
 
-	output := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdCopy, []string{"copy", "-c", "never.yml", "foobar-testing"})
 	})
+
+	assert.Empty(t, errOutput)
 
 	tmpFile, err := appFS.Open("foobar-testingtmp.sql.gz")
 

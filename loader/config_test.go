@@ -34,4 +34,6 @@ func TestConfig_LoadConfigFromPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "BAR", config.ProjectID)
+	assert.Equal(t, "BAR", config.Cluster.ProjectID)
+	assert.Equal(t, "gcp", config.Cluster.Type)
 }

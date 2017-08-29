@@ -22,7 +22,7 @@ func CmdCopy(c *cli.Context) error {
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	return CopyDatabaseByBranchName(c.Args().Get(0), configContainer)
@@ -52,7 +52,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	sqlService, err := serviceBuilder.GetSqlService()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	database, _ := sqlService.Databases.Get(configContainer.ProjectID, configContainer.Database.Instance, databaseName).Do()
@@ -63,19 +63,19 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	storageService, err := serviceBuilder.GetStorageService(configContainer.Database.Bucket)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	instance, err := sqlService.Instances.Get(configContainer.ProjectID, configContainer.Database.Instance).Do()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = storageService.SetBucketACL(instance.ServiceAccountEmailAddress, "WRITER")
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	dumpFilename := fmt.Sprintf(filenamePattern, databaseName)
@@ -89,13 +89,13 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	operation, err := sqlService.Instances.Export(configContainer.ProjectID, configContainer.Database.Instance, exportRequest).Do()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "export of database")
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	defer storageService.DeleteFile(dumpFilename)
@@ -105,12 +105,12 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	downloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	gz, err := gzip.NewReader(downloadedFile)
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	defer gz.Close()
@@ -122,7 +122,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	gzWriter, err := util.CreateGzWriter(fileSystem, tmpName)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	scanner.Err()
@@ -134,7 +134,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		}
 		_, err = gzWriter.Write(line + "\n")
 		if err != nil {
-			return err
+			return cli.NewExitError(err.Error(), 1)
 		}
 	}
 
@@ -146,7 +146,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	err = storageService.UploadFile(tmpName, tmpName, instance.ServiceAccountEmailAddress)
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	defer storageService.DeleteFile(tmpName)
@@ -156,13 +156,13 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	}).Do()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "creation of database")
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	importFilePath := fmt.Sprintf(filePathPattern, configContainer.Database.Bucket, tmpName)
@@ -176,12 +176,12 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	operation, err = sqlService.Instances.Import(configContainer.ProjectID, configContainer.Database.Instance, importRequest).Do()
 
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 
 	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "import of database")
 	if err != nil {
-		return err
+		return cli.NewExitError(err.Error(), 1)
 	}
 	fmt.Fprintln(writer, "Import for sql finished")
 

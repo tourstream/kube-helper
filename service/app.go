@@ -7,24 +7,24 @@ import (
 	"regexp"
 	"time"
 
+	"kube-helper/loader"
+	"os"
+	"strings"
+
 	"github.com/spf13/afero"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
+	"google.golang.org/api/servicemanagement/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
-	"kube-helper/loader"
-	"google.golang.org/api/servicemanagement/v1"
-	"strings"
-	"os"
 )
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
-	CreateForNamespace() error
-	UpdateByNamespace() error
+	Apply() error
 	HasNamespace() bool
 	GetDomain(dnsConfig loader.DNSConfig) string
 }
@@ -53,16 +53,21 @@ const namespaceNameFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
 
 var namespaceNameRegexp = regexp.MustCompile("^" + namespaceNameFmt + "$")
 
-func (a *applicationService) CreateForNamespace() error {
+func (a *applicationService) Apply() error {
 	err := a.isValidNamespace()
 
 	if err != nil {
 		return err
 	}
 
-	if a.HasNamespace() {
-		fmt.Printf("Namespace \"%s\" was already generated\n", a.namespace)
-		return nil
+	update := true
+
+	if !a.HasNamespace() {
+		update = false
+		err = a.createNamespace()
+		if err != nil {
+			return err
+		}
 	}
 
 	if a.config.Endpoints.Enabled {
@@ -71,24 +76,25 @@ func (a *applicationService) CreateForNamespace() error {
 			return err
 		}
 	}
-
-	a.createNamespace()
-	err = a.createFromKubernetesConfig()
+	err = a.applyFromConfig()
 
 	if err != nil {
 		return err
 	}
 
-	ip, err := a.getLoadBalancerIP(60)
+	if !update && a.config.Cluster.Type == "gcp" {
 
-	if err != nil {
-		return err
-	}
+		ip, err := a.getLoadBalancerIP(60)
 
-	err = a.createDNSEntries(ip, a.config.DNS)
+		if err != nil {
+			return err
+		}
 
-	if err != nil {
-		return err
+		err = a.createDNSEntries(ip, a.config.DNS)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(meta_v1.ListOptions{})
@@ -105,7 +111,13 @@ func (a *applicationService) CreateForNamespace() error {
 func (a *applicationService) DeleteByNamespace() error {
 	ip, _ := a.getLoadBalancerIP(10)
 
-	err := a.deleteIngress(a.config.ProjectID)
+	var projectId string
+
+	if a.config.Cluster.Type == "gcp" {
+		projectId = a.config.Cluster.ProjectID
+	}
+
+	err := a.deleteIngress(projectId)
 
 	if err != nil {
 		return err
@@ -138,38 +150,6 @@ func (a *applicationService) DeleteByNamespace() error {
 	}
 
 	log.Printf("Deleted DNS Entries for %s", ip)
-
-	return nil
-}
-
-func (a *applicationService) UpdateByNamespace() error {
-	err := a.isValidNamespace()
-
-	if err != nil {
-		return err
-	}
-
-	if a.config.Endpoints.Enabled {
-		err = a.setEndpointEnvVariables()
-		if err != nil {
-			return err
-		}
-
-	}
-
-	err = a.updateFromKubernetesConfig()
-
-	if err != nil {
-		return err
-	}
-
-	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(meta_v1.ListOptions{})
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
 
 	return nil
 }
@@ -280,6 +260,10 @@ func (a *applicationService) deleteIngress(projectID string) error {
 
 	if err != nil {
 		return err
+	}
+
+	if projectID == "" {
+		return nil
 	}
 
 	for _, ingress := range list.Items {
@@ -423,16 +407,15 @@ func (a *applicationService) createNamespace() error {
 	return errors.New(fmt.Sprintf("Namespace \"%s\" was already generated\n", a.namespace))
 }
 
-func (a *applicationService) createFromKubernetesConfig() error {
+func (a *applicationService) applyFromConfig() error {
 	kindService := NewKind(a.clientSet, new(Images), a.config)
-	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
-		return kindService.CreateKind(a.namespace, splitLines)
+	err := loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
+		return kindService.ApplyKind(a.namespace, splitLines)
 	})
-}
 
-func (a *applicationService) updateFromKubernetesConfig() error {
-	kindService := NewKind(a.clientSet, new(Images), a.config)
-	return loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
-		return kindService.UpdateKind(a.namespace, splitLines)
-	})
+	if err != nil {
+		return err
+	}
+
+	return kindService.CleanupKind(a.namespace)
 }

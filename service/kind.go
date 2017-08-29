@@ -6,21 +6,32 @@ import (
 	"log"
 	"strings"
 
+	"kube-helper/loader"
+	"kube-helper/util"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
+	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"kube-helper/loader"
-	"kube-helper/util"
 )
 
 type KindInterface interface {
-	CreateKind(kubernetesNamespace string, fileLines []string) error
-	UpdateKind(kubernetesNamespace string, fileLines []string) error
+	ApplyKind(kubernetesNamespace string, fileLines []string) error
+	CleanupKind(kubernetesNamespace string, fileLines []string) error
+}
+
+type usedKind struct {
+	secret                []string
+	cronJob               []string
+	deployment            []string
+	service               []string
+	ingress               []string
+	configMap             []string
+	persistentVolume      []string
+	persistentVolumeClaim []string
 }
 
 type kindService struct {
@@ -28,19 +39,13 @@ type kindService struct {
 	clientSet     kubernetes.Interface
 	imagesService ImagesInterface
 	config        loader.Config
+	usedKind      usedKind
 }
 
 func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
 	k := new(kindService)
-	k.decoder = api.Codecs.UniversalDecoder(schema.GroupVersion{
-		Version: "v1",
-	}, schema.GroupVersion{
-		Group:   "extensions",
-		Version: "v1beta1",
-	}, schema.GroupVersion{
-		Group:   "batch",
-		Version: "v2alpha1",
-	})
+
+	k.decoder = clientsetscheme.Codecs.UniversalDeserializer()
 	k.clientSet = client
 	k.imagesService = imagesService
 	k.config = config
@@ -48,64 +53,290 @@ func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config 
 	return k
 }
 
-func (k *kindService) CreateKind(kubernetesNamespace string, fileLines []string) error {
-	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
+func (k *kindService) CleanupKind(kubernetesNamespace string) error {
+
+	err := k.cleanupSecret(kubernetesNamespace)
+
 	if err != nil {
 		return err
 	}
-	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
-	case "Secret":
-		return k.createSecrets(kubernetesNamespace, fileContent.(*v1.Secret))
-	case "ConfigMap":
-		return k.createConfigMap(kubernetesNamespace, fileContent.(*v1.ConfigMap))
-	case "Service":
-		return k.createService(kubernetesNamespace, fileContent.(*v1.Service))
-	case "Deployment":
-		return k.createDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
-	case "Ingress":
-		return k.createIngress(kubernetesNamespace, fileContent.(*v1beta1.Ingress))
-	case "CronJob":
-		return k.createCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
-	case "PersistentVolume":
-		return k.createPersistentVolume(fileContent.(*v1.PersistentVolume))
-	case "PersistentVolumeClaim":
-		return k.createPersistentVolumeClaim(kubernetesNamespace, fileContent.(*v1.PersistentVolumeClaim))
-	default:
-		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
+
+	err = k.cleanupConfigMaps(kubernetesNamespace)
+
+	if err != nil {
+		return err
 	}
 
+	err = k.cleanupCronjobs(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupDeployment(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupIngresses(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	err = k.cleanupPersistentVolumeClaims(kubernetesNamespace)
+
+	if err != nil {
+		return err
+	}
+
+	return k.cleanupServices(kubernetesNamespace)
 }
 
-func (k *kindService) UpdateKind(kubernetesNamespace string, fileLines []string) error {
-	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
+func (k *kindService) cleanupSecret(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).List(meta_v1.ListOptions{})
+
 	if err != nil {
 		return err
 	}
 
-	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
-	case "Secret":
-		return k.updateSecrets(kubernetesNamespace, fileContent.(*v1.Secret))
-	case "ConfigMap":
-		return k.updateConfigMap(kubernetesNamespace, fileContent.(*v1.ConfigMap))
-	case "Service":
-		return k.updateService(kubernetesNamespace, fileContent.(*v1.Service))
-	case "Deployment":
-		return k.updateDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
-	case "Ingress":
-		log.Print("Ingress update is not supported.")
-	case "CronJob":
-		return k.updateCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
-	case "PersistentVolume":
-		return k.updatePersistentVolume(fileContent.(*v1.PersistentVolume))
-	case "PersistentVolumeClaim":
-		return k.updatePersistentVolumeClaim(kubernetesNamespace, fileContent.(*v1.PersistentVolumeClaim))
-	default:
-		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		if strings.HasPrefix(listEntry.Name, "default-token-") {
+			continue
+		}
+		names = append(names, listEntry.Name)
 	}
+
+	for _, name := range difference(names, k.usedKind.secret) {
+		err = k.clientSet.CoreV1().Secrets(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Secret \"%s\" was removed.\n", name)
+	}
+
 	return nil
 }
 
-func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
+func (k *kindService) cleanupConfigMaps(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.configMap) {
+		err = k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("ConfigMap \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupServices(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().Services(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.service) {
+		err = k.clientSet.CoreV1().Services(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Service \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
+	list, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.deployment) {
+		err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Deployment \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
+	list, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.ingress) {
+		err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Ingress \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
+
+	if !k.config.Cluster.AlphaSupport {
+		return nil
+	}
+
+	list, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.cronJob) {
+		err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("CronJob \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) cleanupPersistentVolumeClaims(kubernetesNamespace string) error {
+	list, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).List(meta_v1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	names := []string{}
+
+	for _, listEntry := range list.Items {
+		names = append(names, listEntry.Name)
+	}
+
+	for _, name := range difference(names, k.usedKind.persistentVolumeClaim) {
+		err = k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		log.Printf("PersistentVolumeClaim \"%s\" was removed.\n", name)
+	}
+
+	return nil
+}
+
+func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string) error {
+
+	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
+
+	if err != nil {
+		return err
+	}
+	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
+	case "Secret":
+		return k.upsertSecrets(kubernetesNamespace, fileContent.(*v1.Secret))
+	case "ConfigMap":
+		return k.upsertConfigMap(kubernetesNamespace, fileContent.(*v1.ConfigMap))
+	case "Service":
+		return k.upsertService(kubernetesNamespace, fileContent.(*v1.Service))
+	case "Deployment":
+		return k.upsertDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
+	case "Ingress":
+		return k.upsertIngress(kubernetesNamespace, fileContent.(*v1beta1.Ingress))
+	case "CronJob":
+		return k.upsertCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
+	case "PersistentVolume":
+		return k.upsertPersistentVolume(fileContent.(*v1.PersistentVolume))
+	case "PersistentVolumeClaim":
+		return k.upsertPersistentVolumeClaim(kubernetesNamespace, fileContent.(*v1.PersistentVolumeClaim))
+	default:
+		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
+	}
+}
+
+func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secret) error {
+	_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Get(secret.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Create(secret)
+
+		if err != nil {
+			return err
+		}
+
+		k.usedKind.secret = append(k.usedKind.secret, secret.Name)
+
+		log.Printf("Secret \"%s\" was generated\n", secret.Name)
+
+		return nil
+	}
+
+	_, err = k.clientSet.CoreV1().Secrets(kubernetesNamespace).Update(secret)
+
+	if err != nil {
+		return err
+	}
+
+	k.usedKind.secret = append(k.usedKind.secret, secret.Name)
+
+	log.Printf("Secret \"%s\" was updated\n", secret.Name)
+
+	return nil
+}
+
+func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
 
 	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
@@ -118,11 +349,17 @@ func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha
 	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Get(cronJob.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		err = k.createCronJob(kubernetesNamespace, cronJob)
+		_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Create(cronJob)
+
 		if err != nil {
 			return err
 		}
 
+		k.usedKind.cronJob = append(k.usedKind.cronJob, cronJob.Name)
+
+		log.Printf("CronJob \"%s\" was generated\n", cronJob.Name)
+
+		return nil
 	}
 	_, err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Update(cronJob)
 
@@ -130,12 +367,14 @@ func (k *kindService) updateCronJob(kubernetesNamespace string, cronJob *v2alpha
 		return err
 	}
 
-	log.Printf("CronJob \"%s\" was updated\n", cronJob.ObjectMeta.Name)
+	k.usedKind.cronJob = append(k.usedKind.cronJob, cronJob.Name)
+
+	log.Printf("CronJob \"%s\" was updated\n", cronJob.Name)
 
 	return nil
 }
 
-func (k *kindService) updateDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
+func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
 
 	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, kubernetesNamespace)
@@ -145,10 +384,20 @@ func (k *kindService) updateDeployment(kubernetesNamespace string, deployment *v
 		}
 	}
 
-	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
+	_, err := k.clientSet.AppsV1beta1().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		return k.createDeployment(kubernetesNamespace, deployment)
+		_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Create(deployment)
+
+		if err != nil {
+			return err
+		}
+
+		k.usedKind.deployment = append(k.usedKind.deployment, deployment.Name)
+
+		log.Printf("Deployment \"%s\" was generated\n", deployment.Name)
+
+		return nil
 	}
 
 	_, err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Update(deployment)
@@ -157,187 +406,174 @@ func (k *kindService) updateDeployment(kubernetesNamespace string, deployment *v
 		return err
 	}
 
-	log.Printf("Deployment \"%s\" was updated\n", deployment.ObjectMeta.Name)
+	k.usedKind.deployment = append(k.usedKind.deployment, deployment.Name)
+
+	log.Printf("Deployment \"%s\" was updated\n", deployment.Name)
 
 	return nil
 }
 
-func (k *kindService) updateService(kubernetesNamespace string, service *v1.Service) error {
+func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Service) error {
 
-	_, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Get(service.Name, meta_v1.GetOptions{})
+	existingService, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Get(service.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		return k.createService(kubernetesNamespace, service)
-	}
 
-	log.Print("Service update is not supported.")
-
-	return nil
-}
-
-func (k *kindService) updateSecrets(kubernetesNamespace string, secret *v1.Secret) error {
-	_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Update(secret)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("Secret \"%s\" was updated\n", secret.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) updateConfigMap(kubernetesNamespace string, configMap *v1.ConfigMap) error {
-	_, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Update(configMap)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("ConfigMap \"%s\" was updated\n", configMap.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) updatePersistentVolume(persistentVolume *v1.PersistentVolume) error {
-
-	_, err := k.clientSet.CoreV1().PersistentVolumes().Update(persistentVolume)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("PersistentVolume \"%s\" was updated\n", persistentVolume.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) updatePersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
-
-	_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Update(persistentVolumeClaim)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("PersistentVolumeClaim \"%s\" was updated\n", persistentVolumeClaim.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) createPersistentVolume(persistentVolume *v1.PersistentVolume) error {
-
-	_, err := k.clientSet.CoreV1().PersistentVolumes().Create(persistentVolume)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("PersistentVolume \"%s\" was generated\n", persistentVolume.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) createPersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
-
-	_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Create(persistentVolumeClaim)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("PersistentVolumeClaim \"%s\" was generated\n", persistentVolumeClaim.ObjectMeta.Name)
-
-	return nil
-}
-
-func (k *kindService) createCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
-
-	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
+		_, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Create(service)
 
 		if err != nil {
 			return err
 		}
+
+		k.usedKind.service = append(k.usedKind.service, service.Name)
+
+		log.Printf("Service \"%s\" was generated\n", service.Name)
+
+		return nil
 	}
 
-	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Create(cronJob)
+	service.ResourceVersion = existingService.ResourceVersion
+	service.Spec.ClusterIP = existingService.Spec.ClusterIP
+
+	if _, ok := service.Annotations["tourstream.eu/ingress"]; ok {
+		//TODO add better check which port is which, for now take the same ports like before so that the backend still works with it
+		service.Spec.Ports = existingService.Spec.Ports
+	}
+
+	_, err = k.clientSet.CoreV1().Services(kubernetesNamespace).Update(service)
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("CronJob \"%s\" was generated\n", cronJob.ObjectMeta.Name)
+	k.usedKind.service = append(k.usedKind.service, service.Name)
+
+	log.Printf("Service \"%s\" was updated\n", service.Name)
 
 	return nil
 }
 
-func (k *kindService) createDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
+func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *v1.ConfigMap) error {
 
-	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, kubernetesNamespace)
+	_, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Get(configMap.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+
+		_, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Create(configMap)
 
 		if err != nil {
 			return err
 		}
+
+		k.usedKind.configMap = append(k.usedKind.configMap, configMap.Name)
+
+		log.Printf("ConfigMap \"%s\" was generated\n", configMap.Name)
+
+		return nil
 	}
 
-	_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Create(deployment)
+	_, err = k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Update(configMap)
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Deployment \"%s\" was generated\n", deployment.ObjectMeta.Name)
+	k.usedKind.configMap = append(k.usedKind.configMap, configMap.Name)
+
+	log.Printf("ConfigMap \"%s\" was updated\n", configMap.Name)
 
 	return nil
 }
 
-func (k *kindService) createIngress(kubernetesNamespace string, ingress *v1beta1.Ingress) error {
+func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolume) error {
 
-	_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Create(ingress)
+	_, err := k.clientSet.CoreV1().PersistentVolumes().Get(persistentVolume.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		_, err := k.clientSet.CoreV1().PersistentVolumes().Create(persistentVolume)
+
+		if err != nil {
+			return err
+		}
+
+		k.usedKind.persistentVolume = append(k.usedKind.persistentVolume, persistentVolume.Name)
+
+		log.Printf("PersistentVolume \"%s\" was generated\n", persistentVolume.Name)
+
+		return nil
+	}
+
+	_, err = k.clientSet.CoreV1().PersistentVolumes().Update(persistentVolume)
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Ingress \"%s\" was generated\n", ingress.ObjectMeta.Name)
+	k.usedKind.persistentVolume = append(k.usedKind.persistentVolume, persistentVolume.Name)
+
+	log.Printf("PersistentVolume \"%s\" was updated\n", persistentVolume.Name)
 
 	return nil
 }
 
-func (k *kindService) createService(kubernetesNamespace string, service *v1.Service) error {
-	_, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Create(service)
+func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
+
+	_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Get(persistentVolumeClaim.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Create(persistentVolumeClaim)
+
+		if err != nil {
+			return err
+		}
+
+		k.usedKind.persistentVolumeClaim = append(k.usedKind.persistentVolumeClaim, persistentVolumeClaim.Name)
+
+		log.Printf("PersistentVolumeClaim \"%s\" was generated\n", persistentVolumeClaim.Name)
+
+		return nil
+	}
+
+	_, err = k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Update(persistentVolumeClaim)
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Service \"%s\" was generated\n", service.ObjectMeta.Name)
+	k.usedKind.persistentVolumeClaim = append(k.usedKind.persistentVolumeClaim, persistentVolumeClaim.Name)
+
+	log.Printf("PersistentVolumeClaim \"%s\" was updated\n", persistentVolumeClaim.Name)
 
 	return nil
 }
 
-func (k *kindService) createSecrets(kubernetesNamespace string, secret *v1.Secret) error {
-	_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Create(secret)
+func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1.Ingress) error {
+
+	_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Get(ingress.Name, meta_v1.GetOptions{})
+
+	if err != nil {
+		_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Create(ingress)
+
+		if err != nil {
+			return err
+		}
+
+		k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
+
+		log.Printf("Ingress \"%s\" was generated\n", ingress.Name)
+
+		return nil
+	}
+
+	_, err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Update(ingress)
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Secret \"%s\" was generated\n", secret.ObjectMeta.Name)
+	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 
-	return nil
-}
-
-func (k *kindService) createConfigMap(kubernetesNamespace string, configMap *v1.ConfigMap) error {
-	_, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Create(configMap)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("ConfigMap \"%s\" was generated\n", configMap.ObjectMeta.Name)
+	log.Printf("Ingress \"%s\" was updated\n", ingress.Name)
 
 	return nil
 }
@@ -394,4 +630,18 @@ func getVersionForLatestTag(latestTag string, images *TagCollection) string {
 	}
 
 	return ""
+}
+
+func difference(a, b []string) []string {
+	mb := map[string]bool{}
+	for _, x := range b {
+		mb[x] = true
+	}
+	ab := []string{}
+	for _, x := range a {
+		if _, ok := mb[x]; !ok {
+			ab = append(ab, x)
+		}
+	}
+	return ab
 }
