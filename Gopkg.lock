@@ -245,7 +245,7 @@
   branch = "master"
   name = "google.golang.org/api"
   packages = ["compute/v1","container/v1","dns/v1","gensupport","googleapi","googleapi/internal/uritemplates","googleapi/transport","internal","iterator","option","servicemanagement/v1","sqladmin/v1beta4","storage/v1","transport/http"]
-  revision = "9f6390612e9621af9b26e66c719f9b22e520c669"
+  revision = "7940d22908577b9021e0931c99b3a1d7a12e0d0e"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -304,6 +304,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "726b9378358673e12b268ca96a7c708d8c4d98d4f24c6d69ae9c2c4e0579374c"
+  inputs-digest = "aadcbf4c7c80c252de6a3b9e9855486d74db1b2a1228025a1a6b11d6f61896ca"
   solver-name = "gps-cdcl"
   solver-version = 1

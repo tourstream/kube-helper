@@ -435,6 +435,11 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Serv
 	service.ResourceVersion = existingService.ResourceVersion
 	service.Spec.ClusterIP = existingService.Spec.ClusterIP
 
+	if _, ok := service.Annotations["tourstream.eu/ingress"]; ok {
+		//TODO add better check which port is which, for now take the same ports like before so that the backend still works with it
+		service.Spec.Ports = existingService.Spec.Ports
+	}
+
 	_, err = k.clientSet.CoreV1().Services(kubernetesNamespace).Update(service)
 
 	if err != nil {
@@ -560,9 +565,15 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 		return nil
 	}
 
+	_, err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Update(ingress)
+
+	if err != nil {
+		return err
+	}
+
 	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 
-	log.Print("Ingress update is not supported.")
+	log.Printf("Ingress \"%s\" was updated\n", ingress.Name)
 
 	return nil
 }
