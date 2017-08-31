@@ -518,7 +518,7 @@ func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolu
 
 func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
 
-	_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Get(persistentVolumeClaim.Name, meta_v1.GetOptions{})
+	existingClaim, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Get(persistentVolumeClaim.Name, meta_v1.GetOptions{})
 
 	if err != nil {
 		_, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Create(persistentVolumeClaim)
@@ -533,6 +533,10 @@ func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, pe
 
 		return nil
 	}
+
+	//TODO check if change and fail in favour of a change in spec
+	//override with existing spec because spec is immutable
+	persistentVolumeClaim.Spec = existingClaim.Spec
 
 	_, err = k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Update(persistentVolumeClaim)
 
