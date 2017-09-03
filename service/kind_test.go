@@ -137,6 +137,13 @@ apiVersion: v1
 metadata:
   name: dummy`
 
+var serviceWithAnnotation = `kind: Service
+apiVersion: v1
+metadata:
+  name: dummy
+  annotations:
+    tourstream.eu/ingress: true`
+
 var persistentVolumeClaim = `kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -152,6 +159,14 @@ apiVersion: extensions/v1beta1
 metadata:
   name: dummy`
 
+var deploymentWithAnnotation = `kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: dummy
+  annotations:
+    imageUpdateStrategy: "latest-branching"`
+
+
 var ingress = `kind: Ingress
 apiVersion: extensions/v1beta1
 metadata:
@@ -161,6 +176,13 @@ var cronjob = `kind: CronJob
 apiVersion: batch/v2alpha1
 metadata:
   name: dummy`
+
+var cronjobWithAnnotation = `kind: CronJob
+apiVersion: batch/v2alpha1
+metadata:
+  name: dummy
+  annotations:
+    imageUpdateStrategy: "latest-branching"`
 
 var insertTests = []struct {
 	resource string
@@ -175,6 +197,25 @@ var insertTests = []struct {
 	{"deployments", deployment, "Deployment \"dummy\" was generated.\n"},
 	{"ingresses", ingress, "Ingress \"dummy\" was generated.\n"},
 	{"cronjobs", cronjob, "CronJob \"dummy\" was generated.\n"},
+}
+
+var upsertTests = []struct {
+	resource string
+	kind     string
+	out      string
+	object runtime.Object
+}{
+	{"secrets", secret, "Secret \"dummy\" was updated.\n", nil,},
+	{"configmaps", configMap, "ConfigMap \"dummy\" was updated.\n", nil,},
+	{"services", service, "Service \"dummy\" was updated.\n", &v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
+	{"services", serviceWithAnnotation, "Service \"dummy\" was updated.\n", &v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
+	{"persistentvolumeclaims", persistentVolumeClaim, "PersistentVolumeClaim \"dummy\" was updated.\n", &v1.PersistentVolumeClaim{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
+	{"persistentvolumes", persistentVolume, "PersistentVolume \"dummy\" was updated.\n", nil,},
+	{"deployments", deployment, "Deployment \"dummy\" was updated.\n", nil,},
+	{"deployments", deploymentWithAnnotation, "Deployment \"dummy\" was updated.\n", nil,},
+	{"ingresses", ingress, "Ingress \"dummy\" was updated.\n", nil,},
+	{"cronjobs", cronjob, "CronJob \"dummy\" was updated.\n", nil,},
+	{"cronjobs", cronjobWithAnnotation, "CronJob \"dummy\" was updated.\n", nil,},
 }
 
 func TestKindService_ApplyKindShouldFailWithErrorDuringDecode(t *testing.T) {
@@ -226,6 +267,42 @@ func TestKindService_ApplyKindInsert(t *testing.T) {
 		kindService, _, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
 		fakeClientSet.PrependReactor("create", entry.resource, nilReturnFunc)
+
+		output := captureOutput(func() {
+			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+		})
+
+		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
+	}
+}
+
+func TestKindService_ApplyKindUpdateWithError(t *testing.T) {
+	for _, entry := range upsertTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, _, fakeClientSet := getKindService(t, config)
+		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
+		fakeClientSet.PrependReactor("update", entry.resource, errorReturnFunc)
+
+		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
+	}
+}
+
+func TestKindService_ApplyKindUpdate(t *testing.T) {
+	for _, entry := range upsertTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, _, fakeClientSet := getKindService(t, config)
+		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
+		fakeClientSet.PrependReactor("update", entry.resource, nilReturnFunc)
 
 		output := captureOutput(func() {
 			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
