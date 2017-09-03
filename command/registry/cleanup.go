@@ -12,6 +12,7 @@ import (
 	"github.com/urfave/cli"
 	"fmt"
 	"regexp"
+	"kube-helper/model"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
@@ -38,7 +39,7 @@ func CmdCleanup(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	manifestsForDeletion := map[string]service.Manifest{}
+	manifestsForDeletion := map[string]model.Manifest{}
 
 	latestTagFound := false
 

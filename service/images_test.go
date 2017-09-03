@@ -6,6 +6,7 @@ import (
 	"kube-helper/loader"
 	"gopkg.in/h2non/gock.v1"
 	"errors"
+	"kube-helper/model"
 )
 
 func TestImages_HasTag(t *testing.T) {
@@ -131,9 +132,9 @@ func TestImages_List(t *testing.T) {
 
 	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
 
-	expected := new(TagCollection)
+	expected := new(model.TagCollection)
 	expected.Name = "cloudsql-docker/gce-proxy"
-	expected.Manifests = map[string]Manifest{
+	expected.Manifests = map[string]model.Manifest{
 		"sha256:1": {
 			LayerId:       "layer-1",
 			TimeCreatedMs: int64(1489090775466),
@@ -166,50 +167,50 @@ func TestImages_List(t *testing.T) {
 		},
 
 	}
-	expected.SortedManifests = append(make([]ManifestPair, 0, 8),
-		ManifestPair{
+	expected.SortedManifests = append(make([]model.ManifestPair, 0, 8),
+		model.ManifestPair{
 			Key: "sha256:5",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-5",
 				TimeCreatedMs: int64(1498512067506),
 				Tags:          append(make([]string, 0, 4), "1.10"),
 			},
 		},
-		ManifestPair{
+		model.ManifestPair{
 			Key: "sha256:4",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-4",
 				TimeCreatedMs: int64(1490900872959),
 				Tags:          append(make([]string, 0, 4), "1.09", "latest"),
 			},
 		},
-		ManifestPair{
+		model.ManifestPair{
 			Key: "sha256:2",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-2",
 				TimeCreatedMs: int64(1489698289474),
 				Tags:          append(make([]string, 0, 4), "1.08"),
 			},
 		},
-		ManifestPair{
+		model.ManifestPair{
 			Key: "sha256:1",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-1",
 				TimeCreatedMs: int64(1489090775466),
 				Tags:          []string{},
 			},
 		},
-		ManifestPair{
+		model.ManifestPair{
 			Key: "sha256:3",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-3",
 				TimeCreatedMs: int64(1484065818532),
 				Tags:          []string{},
 			},
 		},
-		ManifestPair{
+		model.ManifestPair{
 			Key: "sha256:6",
-			Value: Manifest{
+			Value: model.Manifest{
 				LayerId:       "layer-6",
 				TimeCreatedMs: int64(1475860677921),
 				Tags:          append(make([]string, 0, 4), "test-249c4560aac8"),
@@ -288,7 +289,7 @@ func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
 	result, err := imageService.List(loader.Cleanup{ImagePath: "google-registry/project/container"})
 
-	expected := new(TagCollection)
+	expected := new(model.TagCollection)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expected, result)

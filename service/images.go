@@ -11,27 +11,11 @@ import (
 	"kube-helper/loader"
 	"golang.org/x/oauth2/google"
 	"sort"
+	"kube-helper/model"
 )
 
-type Manifest struct {
-	LayerId       string   `json:"layerId"`
-	Tags          []string `json:"tag"`
-	TimeCreatedMs int64 `json:"timeCreatedMs,string"`
-}
-
-type TagCollection struct {
-	Name            string
-	Manifests       map[string]Manifest `json:"manifest"`
-	SortedManifests []ManifestPair
-}
-
-type ManifestPair struct {
-	Key   string
-	Value Manifest
-}
-
 type ImagesInterface interface {
-	List(config loader.Cleanup) (*TagCollection, error)
+	List(config loader.Cleanup) (*model.TagCollection, error)
 	HasTag(config loader.Cleanup, tag string) (bool, error)
 	Untag(config loader.Cleanup, tag string) error
 	DeleteManifest(config loader.Cleanup, manifest string) error
@@ -65,7 +49,7 @@ func (i *Images) HasTag(config loader.Cleanup, tag string) (bool, error) {
 
 }
 
-func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
+func (i *Images) List(config loader.Cleanup) (*model.TagCollection, error) {
 	err := i.setClient()
 
 	if err != nil {
@@ -82,7 +66,7 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 
 	defer resp.Body.Close()
 
-	var s = new(TagCollection)
+	var s = new(model.TagCollection)
 
 	if resp.StatusCode == 200 { // OK
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -95,9 +79,9 @@ func (i *Images) List(config loader.Cleanup) (*TagCollection, error) {
 		}
 	}
 
-	var ss []ManifestPair
+	var ss []model.ManifestPair
 	for k, v := range s.Manifests {
-		ss = append(ss, ManifestPair{k, v})
+		ss = append(ss, model.ManifestPair{k, v})
 	}
 
 	sort.Slice(ss, func(i, j int) bool {
