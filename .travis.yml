@@ -4,6 +4,8 @@ matrix:
   include:
     - os: linux
       go: 1.8.x
+    - os: linux
+      go: 1.9.x
 
 go_import_path: kube-helper
 
@@ -15,9 +17,6 @@ install:
   - echo $APP_DEFAULT_CRED | base64 --decode >> ~/.config/gcloud/application_default_credentials.json
   - dep ensure
   - go get github.com/mattn/goveralls github.com/modocache/gover
-
-before_script:
-  - PKGS=$(go list ./... | grep -v /vendor/ )
 
 script:
   - go build

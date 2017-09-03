@@ -39,14 +39,7 @@ func TestKindService_CleanupKindWithErrorOnGetList(t *testing.T) {
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
-		var test testing_k8s.ReactionFunc
-
-		test = func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
-
-			return true, nil, errors.New("explode")
-		}
-
-		fakeClientSet.PrependReactor("list", entry.resource, test)
+		fakeClientSet.PrependReactor("list", entry.resource, errorReturnFunc)
 
 		assert.EqualError(t, kindService.CleanupKind("foobar"), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
@@ -75,20 +68,8 @@ func TestKindService_CleanupKindWithErrorOnDeleteKind(t *testing.T) {
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
-		var list, deleteFunc testing_k8s.ReactionFunc
-
-		list = func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
-
-			return true, entry.list, nil
-		}
-
-		deleteFunc = func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
-
-			return true, nil, errors.New("explode")
-		}
-
-		fakeClientSet.PrependReactor("list", entry.resource, list)
-		fakeClientSet.PrependReactor("delete", entry.resource, deleteFunc)
+		fakeClientSet.PrependReactor("list", entry.resource, getObjectReturnFunc(entry.list))
+		fakeClientSet.PrependReactor("delete", entry.resource, errorReturnFunc)
 
 		assert.EqualError(t, kindService.CleanupKind("foobar"), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
@@ -97,7 +78,7 @@ func TestKindService_CleanupKindWithErrorOnDeleteKind(t *testing.T) {
 var deleteTests = []struct {
 	resource string
 	list     runtime.Object
-	out string
+	out      string
 }{
 	{"secrets", &v1.SecretList{Items: []v1.Secret{{ObjectMeta: meta.ObjectMeta{Name: "default-token-fff"}}, {ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},}, "Secret \"dummy\" was removed.\n"},
 	{"configmaps", &v1.ConfigMapList{Items: []v1.ConfigMap{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "ConfigMap \"dummy\" was removed.\n"},
@@ -118,26 +99,156 @@ func TestKindService_CleanupKind(t *testing.T) {
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
-		var list, deleteFunc testing_k8s.ReactionFunc
-
-		list = func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
-
-			return true, entry.list, nil
-		}
-
-		deleteFunc = func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
-
-			return true, nil, nil
-		}
-
-		fakeClientSet.PrependReactor("list", entry.resource, list)
-		fakeClientSet.PrependReactor("delete", entry.resource, deleteFunc)
+		fakeClientSet.PrependReactor("list", entry.resource, getObjectReturnFunc(entry.list))
+		fakeClientSet.PrependReactor("delete", entry.resource, nilReturnFunc)
 
 		output := captureOutput(func() {
 			assert.NoError(t, kindService.CleanupKind("foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
+		assert.Len(t, fakeClientSet.Actions(), 8)
+	}
+}
+
+func TestKindService_CleanupKindCronJobWithoutEnabledSupport(t *testing.T) {
+	config := loader.Config{}
+
+	kindService, _, fakeClientSet := getKindService(t, config)
+
+	assert.NoError(t, kindService.CleanupKind("foobar"))
+	assert.Len(t, fakeClientSet.Actions(), 6)
+
+}
+
+var secret = `kind: Secret
+apiVersion: v1
+type: Opaque
+metadata:
+  name: dummy`
+
+var configMap = `kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dummy`
+
+var service = `kind: Service
+apiVersion: v1
+metadata:
+  name: dummy`
+
+var persistentVolumeClaim = `kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: dummy`
+
+var persistentVolume = `kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: dummy`
+
+var deployment = `kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: dummy`
+
+var ingress = `kind: Ingress
+apiVersion: extensions/v1beta1
+metadata:
+  name: dummy`
+
+var cronjob = `kind: CronJob
+apiVersion: batch/v2alpha1
+metadata:
+  name: dummy`
+
+var insertTests = []struct {
+	resource string
+	kind     string
+	out      string
+}{
+	{"secrets", secret, "Secret \"dummy\" was generated.\n"},
+	{"configmaps", configMap, "ConfigMap \"dummy\" was generated.\n"},
+	{"services", service, "Service \"dummy\" was generated.\n"},
+	{"persistentvolumeclaims", persistentVolumeClaim, "PersistentVolumeClaim \"dummy\" was generated.\n"},
+	{"persistentvolumes", persistentVolume, "PersistentVolume \"dummy\" was generated.\n"},
+	{"deployments", deployment, "Deployment \"dummy\" was generated.\n"},
+	{"ingresses", ingress, "Ingress \"dummy\" was generated.\n"},
+	{"cronjobs", cronjob, "CronJob \"dummy\" was generated.\n"},
+}
+
+func TestKindService_ApplyKindShouldFailWithErrorDuringDecode(t *testing.T) {
+	kindService, _, _ := getKindService(t, loader.Config{})
+
+	var kind = `kind: Pod2
+apiVersion: v1
+metadata:
+  name: dummy`
+
+	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}), "no kind \"Pod2\" is registered for version \"v1\"")
+}
+
+func TestKindService_ApplyKindShouldFailWithInvalidKind(t *testing.T) {
+	kindService, _, _ := getKindService(t, loader.Config{})
+
+	var kind = `kind: Pod
+apiVersion: v1
+metadata:
+  name: dummy`
+
+	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}), "Kind Pod is not supported.")
+}
+
+func TestKindService_ApplyKindInsertWithError(t *testing.T) {
+	for _, entry := range insertTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, _, fakeClientSet := getKindService(t, config)
+		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
+		fakeClientSet.PrependReactor("create", entry.resource, errorReturnFunc)
+
+		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
+	}
+}
+
+func TestKindService_ApplyKindInsert(t *testing.T) {
+	for _, entry := range insertTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, _, fakeClientSet := getKindService(t, config)
+		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
+		fakeClientSet.PrependReactor("create", entry.resource, nilReturnFunc)
+
+		output := captureOutput(func() {
+			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+		})
+
+		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
+	}
+}
+
+func errorReturnFunc(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
+
+	return true, nil, errors.New("explode")
+}
+
+func nilReturnFunc(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
+
+	return true, nil, nil
+}
+
+func getObjectReturnFunc(obj runtime.Object) testing_k8s.ReactionFunc {
+	return func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
+
+		return true, obj, nil
 	}
 }
 
