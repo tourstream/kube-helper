@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"kube-helper/model"
 )
 
 var listErrorTests = []struct {
@@ -164,8 +165,14 @@ apiVersion: extensions/v1beta1
 metadata:
   name: dummy
   annotations:
-    imageUpdateStrategy: "latest-branching"`
-
+    imageUpdateStrategy: "latest-branching"
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: deploy
+        image: eu.gcr.io/foobar/app`
 
 var ingress = `kind: Ingress
 apiVersion: extensions/v1beta1
@@ -182,7 +189,18 @@ apiVersion: batch/v2alpha1
 metadata:
   name: dummy
   annotations:
-    imageUpdateStrategy: "latest-branching"`
+    imageUpdateStrategy: "latest-branching"
+spec:
+  schedule: "*/30 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cron
+            image: busy
+          - name: cron-with-gcr
+            image: eu.gcr.io/foobar/app`
 
 var insertTests = []struct {
 	resource string
@@ -203,7 +221,7 @@ var upsertTests = []struct {
 	resource string
 	kind     string
 	out      string
-	object runtime.Object
+	object   runtime.Object
 }{
 	{"secrets", secret, "Secret \"dummy\" was updated.\n", nil,},
 	{"configmaps", configMap, "ConfigMap \"dummy\" was updated.\n", nil,},
@@ -212,10 +230,18 @@ var upsertTests = []struct {
 	{"persistentvolumeclaims", persistentVolumeClaim, "PersistentVolumeClaim \"dummy\" was updated.\n", &v1.PersistentVolumeClaim{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
 	{"persistentvolumes", persistentVolume, "PersistentVolume \"dummy\" was updated.\n", nil,},
 	{"deployments", deployment, "Deployment \"dummy\" was updated.\n", nil,},
-	{"deployments", deploymentWithAnnotation, "Deployment \"dummy\" was updated.\n", nil,},
 	{"ingresses", ingress, "Ingress \"dummy\" was updated.\n", nil,},
 	{"cronjobs", cronjob, "CronJob \"dummy\" was updated.\n", nil,},
+}
+
+var setImageTests = []struct {
+	resource string
+	kind     string
+	out      string
+	object   runtime.Object
+}{
 	{"cronjobs", cronjobWithAnnotation, "CronJob \"dummy\" was updated.\n", nil,},
+	{"deployments", deploymentWithAnnotation, "Deployment \"dummy\" was updated.\n", nil,},
 }
 
 func TestKindService_ApplyKindShouldFailWithErrorDuringDecode(t *testing.T) {
@@ -310,6 +336,91 @@ func TestKindService_ApplyKindUpdate(t *testing.T) {
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
+}
+
+func TestKindService_ApplyKindUpdateWithContainers(t *testing.T) {
+	for _, entry := range setImageTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, imageServiceMock, fakeClientSet := getKindService(t, config)
+		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
+		fakeClientSet.PrependReactor("update", entry.resource, nilReturnFunc)
+
+		imageServiceMock.On("List", loader.Cleanup{ImagePath: "eu.gcr.io/foobar/app"}).Return(new(model.TagCollection), nil)
+
+		output := captureOutput(func() {
+			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+		})
+
+		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
+	}
+}
+
+func TestKindService_ApplyKindUpdateWithContainersError(t *testing.T) {
+	for _, entry := range setImageTests {
+		config := loader.Config{
+			Cluster: loader.Cluster{
+				AlphaSupport: true,
+			},
+		}
+
+		kindService, imageServiceMock, _ := getKindService(t, config)
+
+		imageServiceMock.On("List", loader.Cleanup{ImagePath: "eu.gcr.io/foobar/app"}).Return(nil, errors.New("explode"))
+
+		assert.Error(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+
+	}
+}
+
+func TestKindService_ApplyKindUpdateWithDisabledAlphaSupport(t *testing.T) {
+
+	kindService, _, _ := getKindService(t, loader.Config{})
+
+	output := captureOutput(func() {
+		assert.NoError(t, kindService.ApplyKind("foobar", []string{cronjob}))
+	})
+
+	assert.Equal(t, "CronJob \"dummy\" was not generated or updated, because alpha support is not enabled.\n", output)
+}
+
+func TestKindService_SetImageForContainer(t *testing.T) {
+	var dataProvider = []struct {
+		namespace string
+		tags     []string
+		imagePath      string
+	}{
+		{"foobar", []string{"staging-foobar-latest", "staging-foobar-3"}, "gcr.io/path/app:staging-foobar-3", },
+		{"production", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3", },
+		{"staging", []string{"staging-latest", "staging-3"}, "gcr.io/path/app:staging-3", },
+	}
+
+
+	for _, entry := range dataProvider {
+		kindService, imageServiceMock, _ := getKindService(t, loader.Config{})
+
+		tags := new(model.TagCollection)
+		tags.Manifests = map[string]model.Manifest{}
+		tags.Manifests["stuff"] = model.Manifest{
+			Tags: entry.tags,
+		}
+
+		imageServiceMock.On("List", loader.Cleanup{ImagePath: "gcr.io/path/app"}).Return(tags, nil)
+
+		containers := []v1.Container{
+			{Image: "gcr.io/path/app"},
+		}
+
+		kindService.setImageForContainer("latest-branching", containers, entry.namespace)
+
+		assert.Equal(t, entry.imagePath, containers[0].Image)
+	}
+
+
 }
 
 func errorReturnFunc(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {

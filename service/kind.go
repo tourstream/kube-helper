@@ -336,6 +336,7 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secre
 func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
 
 	if !k.config.Cluster.AlphaSupport {
+		fmt.Fprintf(writer, "CronJob \"%s\" was not generated or updated, because alpha support is not enabled.\n", cronJob.Name)
 		return nil
 	}
 
@@ -585,15 +586,13 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 
 func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, kubernetesNamespace string) error {
 
-	var imagesService ImagesInterface = new(Images)
-
 	for idx, container := range containers {
 
 		if strings.Contains(container.Image, "gcr.io") == false {
 			continue
 		}
 
-		images, err := imagesService.List(loader.Cleanup{ImagePath: container.Image})
+		images, err := k.imagesService.List(loader.Cleanup{ImagePath: container.Image})
 
 		if err != nil {
 			return err
