@@ -274,7 +274,7 @@ func (a *applicationService) deleteIngress(projectID string) error {
 			if err != nil {
 				return err
 			}
-			log.Printf("%s is deleted and so the ingres with name \"%s\" is removed", addressName, ingress.Name)
+			fmt.Fprintf(writer,"%s is deleted and so the ingres with name \"%s\" is removed\n", addressName, ingress.Name)
 
 		}
 	}
@@ -317,17 +317,31 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 
 	for _, ingress := range ingressList.Items {
 		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gcp" {
-			for retries := 0; retries < maxRetries; retries++ {
-				if len(ingress.Status.LoadBalancer.Ingress) > 0 {
-					ip = ingress.Status.LoadBalancer.Ingress[0].IP
-					break
+			ingressWait := ingress
+
+			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
+				ip = ingress.Status.LoadBalancer.Ingress[0].IP
+			}
+
+			if ip == "" {
+				for retries := 0; retries < maxRetries; retries++ {
+					ingressWait, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get(ingressWait.Name, meta_v1.GetOptions{})
+
+					if err != nil {
+						return "", err
+					}
+
+					if len(ingressWait.Status.LoadBalancer.Ingress) > 0 {
+						ip = ingressWait.Status.LoadBalancer.Ingress[0].IP
+						break
+					}
+					fmt.Fprint(writer,"Waiting for Loadbalancer IP\n")
+					time.Sleep(time.Second * 5)
 				}
-				log.Print("Waiting for Loadbalancer IP")
-				time.Sleep(time.Second * 5)
 			}
 
 			if ip != "" {
-				log.Printf("Loadbalancer IP : %s", ip)
+				fmt.Fprintf(writer,"Loadbalancer IP : %s\n", ip)
 				return ip, nil
 			}
 		}
@@ -377,7 +391,7 @@ func (a *applicationService) waitForStaticIPToBeDeleted(projectID string, addres
 				if err != nil {
 					break
 				}
-				log.Printf("Waiting for IP \"%s\" to be released", address.Name)
+				fmt.Fprintf(writer,"Waiting for IP \"%s\" to be released\n", address.Name)
 				time.Sleep(time.Second * 5)
 			}
 		}
