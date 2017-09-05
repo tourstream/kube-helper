@@ -10,12 +10,14 @@ import (
 	"google.golang.org/api/sqladmin/v1beta4"
 	"kube-helper/loader"
 	"kube-helper/service"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 var writer io.Writer = os.Stdout
 var serviceBuilder service.BuilderInterface = new(service.Builder)
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
+var clock util_clock.Clock = new(util_clock.RealClock)
 
 func waitForOperationToFinish(sqlService *sqladmin.Service, operation *sqladmin.Operation, projectID string, operationType string) error {
 	var err error
@@ -36,7 +38,7 @@ func waitForOperationToFinish(sqlService *sqladmin.Service, operation *sqladmin.
 		}
 
 		fmt.Fprintln(writer, fmt.Sprintf("Wait for operation %s to finish", operationType))
-		time.Sleep(time.Second * 5)
+		clock.Sleep(time.Second * 5)
 	}
 	return nil
 }

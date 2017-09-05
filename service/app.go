@@ -20,9 +20,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 var serviceBuilder BuilderInterface = new(Builder)
+var clock util_clock.Clock = new(util_clock.RealClock)
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
@@ -336,7 +338,7 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 						break
 					}
 					fmt.Fprint(writer,"Waiting for Loadbalancer IP\n")
-					time.Sleep(time.Second * 5)
+					clock.Sleep(time.Second * 5)
 				}
 			}
 

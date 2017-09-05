@@ -10,7 +10,9 @@ import (
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/pkg/api/v1"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 	"gopkg.in/h2non/gock.v1"
+	"time"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -130,7 +132,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress",Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -143,6 +145,14 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
 	fakeClientSet.PrependReactor("delete", "namespaces", nilReturnFunc)
+
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
+	defer func() {
+		clock = oldClock
+	}()
+
 	output := captureOutput(func() {
 		assert.NoError(t, appService.DeleteByNamespace())
 	})

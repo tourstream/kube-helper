@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"gopkg.in/h2non/gock.v1"
+	"time"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 func TestCmdCleanupWithWrongConfig(t *testing.T) {
@@ -278,7 +280,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
 	})
 
-	assert.Equal(t,"googleapi: got HTTP response code 404 with body: {\"foo\":\"bar\"}\n\n", errOutput)
+	assert.Equal(t, "googleapi: got HTTP response code 404 with body: {\"foo\":\"bar\"}\n\n", errOutput)
 	assert.Empty(t, output)
 }
 
@@ -308,6 +310,9 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	sqlService, err := oldServiceBuilder.GetSqlService()
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(_mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
@@ -319,6 +324,7 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
 		branchLoader = oldBranchLoader
+		clock = oldClock
 	}()
 
 	cli.OsExiter = func(exitCode int) {
