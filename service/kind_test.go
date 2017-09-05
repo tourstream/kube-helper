@@ -103,6 +103,8 @@ func TestKindService_CleanupKind(t *testing.T) {
 		fakeClientSet.PrependReactor("list", entry.resource, getObjectReturnFunc(entry.list))
 		fakeClientSet.PrependReactor("delete", entry.resource, nilReturnFunc)
 
+		kindService.usedKind.secret = append(kindService.usedKind.secret, "foobarUsed")
+
 		output := captureOutput(func() {
 			assert.NoError(t, kindService.CleanupKind("foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})

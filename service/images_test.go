@@ -11,7 +11,7 @@ import (
 
 func TestImages_HasTag(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -34,7 +34,7 @@ func TestImages_HasTag(t *testing.T) {
 
 func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -57,7 +57,7 @@ func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 func TestImages_List(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -224,7 +224,7 @@ func TestImages_List(t *testing.T) {
 
 func TestImages_ListWithNoValidJson(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -249,7 +249,7 @@ func TestImages_ListWithNoValidJson(t *testing.T) {
 
 func TestImages_ListWithErrorToGetList(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -272,7 +272,7 @@ func TestImages_ListWithErrorToGetList(t *testing.T) {
 
 func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -298,7 +298,7 @@ func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
 func TestImages_DeleteManifest(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -318,7 +318,7 @@ func TestImages_DeleteManifest(t *testing.T) {
 
 func TestImages_DeleteManifestWithError(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -338,7 +338,7 @@ func TestImages_DeleteManifestWithError(t *testing.T) {
 
 func TestImages_Untag(t *testing.T) {
 
-	imageService := new(Images)
+	imageService := new(images)
 
 	defer gock.Off() // Flush pending mocks after test execution
 

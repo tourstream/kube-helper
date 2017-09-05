@@ -408,8 +408,15 @@ func (a *applicationService) createNamespace() error {
 }
 
 func (a *applicationService) applyFromConfig() error {
-	kindService := NewKind(a.clientSet, new(Images), a.config)
-	err := loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
+
+	imageService, err := newImagesService()
+
+	if err != nil {
+		return err
+	}
+
+	kindService := NewKind(a.clientSet, imageService, a.config)
+	err = loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.ApplyKind(a.namespace, splitLines)
 	})
 

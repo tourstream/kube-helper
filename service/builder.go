@@ -29,6 +29,7 @@ type BuilderInterface interface {
 	GetStorageService(bucket string) (BucketServiceInterface, error)
 	GetClient(scope ...string) (*http.Client, error)
 	GetApplicationService(client kubernetes.Interface, namespace string, config loader.Config) (ApplicationServiceInterface, error)
+	GetImagesService() (ImagesInterface, error)
 }
 
 type Builder struct {
@@ -182,3 +183,14 @@ func (h *Builder) getServiceManagementService() (*servicemanagement.APIService, 
 
 	return servicemanagement.New(httpClient)
 }
+
+func (h *Builder) GetImagesService() (ImagesInterface, error)  {
+	imageService, err := newImagesService()
+
+	if err != nil {
+		return nil,err
+	}
+
+	return imageService, nil
+}
+

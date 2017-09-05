@@ -111,6 +111,29 @@ func (_m *BuilderInterface) GetDNSService() (*dns.Service, error) {
 	return r0, r1
 }
 
+// GetImagesService provides a mock function with given fields:
+func (_m *BuilderInterface) GetImagesService() (service.ImagesInterface, error) {
+	ret := _m.Called()
+
+	var r0 service.ImagesInterface
+	if rf, ok := ret.Get(0).(func() service.ImagesInterface); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(service.ImagesInterface)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSqlService provides a mock function with given fields:
 func (_m *BuilderInterface) GetSqlService() (*sqladmin.Service, error) {
 	ret := _m.Called()

@@ -42,6 +42,48 @@ func TestCmdCleanupWithWrongConfig(t *testing.T) {
 	assert.Equal(t, "explode\n", errOutput)
 }
 
+func TestCmdCleanupWithErrorForImageService(t *testing.T) {
+	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		Cleanup: loader.Cleanup{
+			ImagePath: "area.local/projectName/image-name",
+		},
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(nil, errors.New("explode"))
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 1, exitCode)
+	}
+
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdCleanup, []string{"cleanup", "-c", "never.yml"})
+	})
+
+	assert.Empty(t, output)
+
+	assert.Equal(t, "explode\n", errOutput)
+}
+
 func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 	oldHandler := cli.OsExiter
 
@@ -58,17 +100,22 @@ func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldImagesLoader := imagesService
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
+
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		imagesService = oldImagesLoader
+		serviceBuilder = oldServiceBuilder
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -100,10 +147,14 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldImagesLoader := imagesService
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(&model.TagCollection{}, nil)
 
@@ -117,7 +168,7 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		imagesService = oldImagesLoader
+		serviceBuilder = oldServiceBuilder
 		branchLoader = oldBranchLoader
 	}()
 
@@ -150,10 +201,14 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldImagesLoader := imagesService
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	collection := &model.TagCollection{
 		SortedManifests: []model.ManifestPair{
@@ -179,7 +234,7 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		imagesService = oldImagesLoader
+		serviceBuilder = oldServiceBuilder
 		branchLoader = oldBranchLoader
 	}()
 
@@ -213,10 +268,14 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldImagesLoader := imagesService
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	collection := &model.TagCollection{
 		SortedManifests: []model.ManifestPair{
@@ -244,7 +303,7 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		imagesService = oldImagesLoader
+		serviceBuilder = oldServiceBuilder
 		branchLoader = oldBranchLoader
 	}()
 
@@ -276,10 +335,14 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldImagesLoader := imagesService
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	collection := &model.TagCollection{
 		SortedManifests: []model.ManifestPair{
@@ -363,7 +426,7 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		imagesService = oldImagesLoader
+		serviceBuilder = oldServiceBuilder
 		branchLoader = oldBranchLoader
 	}()
 
