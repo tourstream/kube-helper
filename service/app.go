@@ -22,6 +22,8 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 )
 
+var serviceBuilder BuilderInterface = new(Builder)
+
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
 	Apply() error
@@ -84,7 +86,7 @@ func (a *applicationService) Apply() error {
 
 	if !update && a.config.Cluster.Type == "gcp" {
 
-		ip, err := a.getLoadBalancerIP(60)
+		ip, err := a.getGcpLoadBalancerIP(60)
 
 		if err != nil {
 			return err
@@ -109,7 +111,7 @@ func (a *applicationService) Apply() error {
 }
 
 func (a *applicationService) DeleteByNamespace() error {
-	ip, _ := a.getLoadBalancerIP(10)
+	ip, _ := a.getGcpLoadBalancerIP(10)
 
 	var projectId string
 
@@ -141,7 +143,7 @@ func (a *applicationService) DeleteByNamespace() error {
 		return err
 	}
 
-	log.Printf("Namespace \"%s\" was deleted\n", a.namespace)
+	fmt.Fprintf(writer, "Namespace \"%s\" was deleted\n", a.namespace)
 
 	err = a.deleteDNSEntries(ip, a.config.DNS)
 
@@ -149,7 +151,7 @@ func (a *applicationService) DeleteByNamespace() error {
 		return err
 	}
 
-	log.Printf("Deleted DNS Entries for %s", ip)
+
 
 	return nil
 }
@@ -244,7 +246,7 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 	if err != nil {
 		return err
 	}
-
+	fmt.Fprintf(writer, "Deleted DNS Entries for %s", ip)
 	return nil
 }
 
@@ -267,8 +269,7 @@ func (a *applicationService) deleteIngress(projectID string) error {
 	}
 
 	for _, ingress := range list.Items {
-		addressName := ingress.Annotations["ingress.kubernetes.io/static-ip"]
-		if len(addressName) > 0 {
+		if addressName, ok := ingress.Annotations["ingress.kubernetes.io/static-ip"]; ok && addressName != "" {
 			err := a.waitForStaticIPToBeDeleted(projectID, addressName, 60)
 			if err != nil {
 				return err
@@ -305,29 +306,34 @@ func (a *applicationService) deleteService() error {
 	return nil
 }
 
-func (a *applicationService) getLoadBalancerIP(maxRetries int) (string, error) {
+func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error) {
 	var ip string
 
-	for retries := 0; retries < maxRetries; retries++ {
-		loadbalancer, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get("loadbalancer", meta_v1.GetOptions{})
+	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
 
-		if err != nil {
-			return "", err
-		}
-
-		if len(loadbalancer.Status.LoadBalancer.Ingress) > 0 {
-			ip = loadbalancer.Status.LoadBalancer.Ingress[0].IP
-			break
-		}
-		log.Print("Waiting for Loadbalancer IP")
-		time.Sleep(time.Second * 5)
+	if err != nil {
+		return "", err
 	}
-	if ip == "" {
-		return "", errors.New("No Loadbalancer IP found")
-	}
-	log.Printf("Loadbalancer IP : %s", ip)
 
-	return ip, nil
+	for _, ingress := range ingressList.Items {
+		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gcp" {
+			for retries := 0; retries < maxRetries; retries++ {
+				if len(ingress.Status.LoadBalancer.Ingress) > 0 {
+					ip = ingress.Status.LoadBalancer.Ingress[0].IP
+					break
+				}
+				log.Print("Waiting for Loadbalancer IP")
+				time.Sleep(time.Second * 5)
+			}
+
+			if ip != "" {
+				log.Printf("Loadbalancer IP : %s", ip)
+				return ip, nil
+			}
+		}
+	}
+
+	return "", errors.New("no Loadbalancer IP found")
 }
 
 func (a *applicationService) getResourceRecordSets(domain string, cnames []string, ip string) []*dns.ResourceRecordSet {
@@ -409,7 +415,7 @@ func (a *applicationService) createNamespace() error {
 
 func (a *applicationService) applyFromConfig() error {
 
-	imageService, err := newImagesService()
+	imageService, err := serviceBuilder.GetImagesService()
 
 	if err != nil {
 		return err

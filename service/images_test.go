@@ -32,6 +32,29 @@ func TestImages_HasTag(t *testing.T) {
 
 }
 
+
+func TestImages_HasTagWithWithError(t *testing.T) {
+
+	imageService,_ := newImagesService()
+
+	defer gock.Off() // Flush pending mocks after test execution
+
+	gock.New("https://accounts.google.com").
+		Post("/o/oauth2/token").
+		Reply(200).
+		JSON(map[string]string{"foo": "bar"})
+
+	gock.New("https://google-registry").
+		Get("/v2/project/container/manifests/branch-tag").
+		ReplyError(errors.New("explode"))
+
+	result, err := imageService.HasTag(loader.Cleanup{ImagePath: "google-registry/project/container"}, "branch-tag")
+
+	assert.EqualError(t, err, "Get https://google-registry/v2/project/container/manifests/branch-tag: explode")
+	assert.False(t, result)
+
+}
+
 func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 	imageService,_ := newImagesService()
