@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-	"google.golang.org/api/compute/v1"
+	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/servicemanagement/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,11 +38,11 @@ type applicationService struct {
 	namespace         string
 	config            loader.Config
 	dnsService        *dns.Service
-	computeService    *compute.Service
+	computeService    *compute_v1.Service
 	serviceManagement *servicemanagement.APIService
 }
 
-func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
+func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute_v1.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
 	a := new(applicationService)
 	a.clientSet = client
 	a.namespace = namespace
@@ -127,18 +127,6 @@ func (a *applicationService) DeleteByNamespace() error {
 		return err
 	}
 
-	err = a.deleteService()
-
-	if err != nil {
-		return err
-	}
-
-	err = a.deleteDeployment()
-
-	if err != nil {
-		return err
-	}
-
 	err = a.deleteNamespace()
 
 	if err != nil {
@@ -152,8 +140,6 @@ func (a *applicationService) DeleteByNamespace() error {
 	if err != nil {
 		return err
 	}
-
-
 
 	return nil
 }
@@ -276,32 +262,8 @@ func (a *applicationService) deleteIngress(projectID string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(writer,"%s is deleted and so the ingres with name \"%s\" is removed\n", addressName, ingress.Name)
+			fmt.Fprintf(writer, "%s is deleted and so the ingres with name \"%s\" is removed\n", addressName, ingress.Name)
 
-		}
-	}
-
-	return nil
-}
-
-func (a *applicationService) deleteDeployment() error {
-	return a.clientSet.ExtensionsV1beta1().Deployments(a.namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
-
-}
-
-func (a *applicationService) deleteService() error {
-
-	list, err := a.clientSet.CoreV1().Services(a.namespace).List(meta_v1.ListOptions{})
-
-	if err != nil {
-		return err
-	}
-
-	for _, service := range list.Items {
-		err = a.clientSet.CoreV1().Services(a.namespace).Delete(service.Name, &meta_v1.DeleteOptions{})
-
-		if err != nil {
-			return err
 		}
 	}
 
@@ -337,13 +299,13 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 						ip = ingressWait.Status.LoadBalancer.Ingress[0].IP
 						break
 					}
-					fmt.Fprint(writer,"Waiting for Loadbalancer IP\n")
+					fmt.Fprint(writer, "Waiting for Loadbalancer IP\n")
 					clock.Sleep(time.Second * 5)
 				}
 			}
 
 			if ip != "" {
-				fmt.Fprintf(writer,"Loadbalancer IP : %s\n", ip)
+				fmt.Fprintf(writer, "Loadbalancer IP : %s\n", ip)
 				return ip, nil
 			}
 		}
@@ -393,7 +355,7 @@ func (a *applicationService) waitForStaticIPToBeDeleted(projectID string, addres
 				if err != nil {
 					break
 				}
-				fmt.Fprintf(writer,"Waiting for IP \"%s\" to be released\n", address.Name)
+				fmt.Fprintf(writer, "Waiting for IP \"%s\" to be released\n", address.Name)
 				clock.Sleep(time.Second * 5)
 			}
 		}

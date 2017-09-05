@@ -13,6 +13,7 @@ import (
 	util_clock "k8s.io/apimachinery/pkg/util/clock"
 	"gopkg.in/h2non/gock.v1"
 	"time"
+	"errors"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -164,6 +165,240 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 	assert.Contains(t, output, "foobar-ip is deleted and so the ingres with name \"Foobar-Ingress\" is removed")
 }
 
+func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForDeleteDNS(t *testing.T) {
+
+	defer gock.Off()
+
+	responseAddressList := `
+{
+  "kind": "compute#addressList",
+  "items": [
+    {
+	  "kind": "compute#address",
+	  "name": "foobar-ip"
+	}
+  ]
+}`
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
+		MatchType("json").
+		BodyString(`{"deletions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
+		ReplyError(errors.New("explode"))
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(200).
+		JSON(responseAddressList)
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(200).
+		JSON(`{"kind": "compute#address","name": "foobar-ip"}`)
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(404)
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type:      "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	list := &v1beta1.IngressList{
+		Items: []v1beta1.Ingress{
+			{},
+			{
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				Status: v1beta1.IngressStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{IP: "127.0.0.1"},
+						},
+					}}},
+		},
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
+	fakeClientSet.PrependReactor("delete", "namespaces", nilReturnFunc)
+
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
+	defer func() {
+		clock = oldClock
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.DeleteByNamespace(), "Post https://www.googleapis.com/dns/v1/projects/foobar-dns/managedZones/zone-test/changes?alt=json: explode")
+	})
+
+	assert.Contains(t, output, "Namespace \"foobar\" was deleted\n")
+	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
+	assert.Contains(t, output, "Waiting for IP \"foobar-ip\" to be released")
+	assert.Contains(t, output, "foobar-ip is deleted and so the ingres with name \"Foobar-Ingress\" is removed")
+}
+
+func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForDeletion(t *testing.T) {
+
+	defer gock.Off()
+
+	response := `
+{
+  "kind": "dns#change",
+  "status": "done"
+
+}`
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
+		MatchType("json").
+		BodyString(`{"deletions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
+		Reply(200).
+		JSON(response)
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		ReplyError(errors.New("explode"))
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type:      "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	list := &v1beta1.IngressList{
+		Items: []v1beta1.Ingress{
+			{},
+			{
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				Status: v1beta1.IngressStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{IP: "127.0.0.1"},
+						},
+					}}},
+		},
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
+
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
+	defer func() {
+		clock = oldClock
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.DeleteByNamespace(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/addresses?alt=json: explode")
+	})
+
+	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
+}
+
+func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForDeletionOfIngress(t *testing.T) {
+
+	defer gock.Off()
+
+	response := `
+{
+  "kind": "dns#change",
+  "status": "done"
+
+}`
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
+		MatchType("json").
+		BodyString(`{"deletions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
+		Reply(200).
+		JSON(response)
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type:      "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	list := &v1beta1.IngressList{
+		Items: []v1beta1.Ingress{
+			{},
+			{
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				Status: v1beta1.IngressStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{IP: "127.0.0.1"},
+						},
+					}}},
+		},
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", errorReturnFunc)
+
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
+	defer func() {
+		clock = oldClock
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.DeleteByNamespace(), "explode")
+	})
+
+	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
+}
+
 func TestApplicationService_DeleteByNamespace(t *testing.T) {
 
 	appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
@@ -174,6 +409,14 @@ func TestApplicationService_DeleteByNamespace(t *testing.T) {
 	})
 
 	assert.Equal(t, "Namespace \"foobar\" was deleted\n", output)
+}
+
+func TestApplicationService_DeleteByNamespaceWithError(t *testing.T) {
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+
+	fakeClientSet.PrependReactor("delete", "namespaces", errorReturnFunc)
+	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 }
 
 func getApplicationService(t *testing.T, namespace string, config loader.Config) (ApplicationServiceInterface, *fake.Clientset) {
