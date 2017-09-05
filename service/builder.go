@@ -30,6 +30,7 @@ type BuilderInterface interface {
 	GetClient(scope ...string) (*http.Client, error)
 	GetApplicationService(client kubernetes.Interface, namespace string, config loader.Config) (ApplicationServiceInterface, error)
 	GetImagesService() (ImagesInterface, error)
+	GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface
 }
 
 type Builder struct {
@@ -192,5 +193,11 @@ func (h *Builder) GetImagesService() (ImagesInterface, error)  {
 	}
 
 	return imageService, nil
+}
+
+func (h *Builder) GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface  {
+	kindService := newKind(client, imagesService, config)
+
+	return kindService
 }
 

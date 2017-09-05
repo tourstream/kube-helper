@@ -14,9 +14,11 @@ import (
 
 var envLoader = godotenv.Load
 
-type callable func([]string) error
+type Callable func([]string) error
 
-func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall callable) error {
+type ReplaceFunc func(fileSystem afero.Fs, path string, functionCall Callable) error
+
+func ReplaceVariablesInFile(fileSystem afero.Fs, path string, functionCall Callable) error {
 	file, err := fileSystem.Open(path)
 	if err != nil {
 		return err

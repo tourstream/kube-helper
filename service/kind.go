@@ -24,7 +24,7 @@ var writer io.Writer = os.Stdout
 
 type KindInterface interface {
 	ApplyKind(kubernetesNamespace string, fileLines []string) error
-	CleanupKind(kubernetesNamespace string, fileLines []string) error
+	CleanupKind(kubernetesNamespace string) error
 }
 
 type usedKind struct {

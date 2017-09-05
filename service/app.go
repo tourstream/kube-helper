@@ -25,7 +25,7 @@ import (
 
 var serviceBuilder BuilderInterface = new(Builder)
 var clock util_clock.Clock = new(util_clock.RealClock)
-
+var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
 	Apply() error
@@ -107,7 +107,7 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
-	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+	fmt.Fprintf(writer,"There are %d pods in the cluster\n", len(pods.Items))
 
 	return nil
 }
@@ -384,7 +384,7 @@ func (a *applicationService) createNamespace() error {
 			return err
 		}
 
-		log.Printf("Namespace \"%s\" was generated\n", a.namespace)
+		fmt.Fprintf(writer,"Namespace \"%s\" was generated\n", a.namespace)
 
 		return nil
 	}
@@ -399,8 +399,9 @@ func (a *applicationService) applyFromConfig() error {
 		return err
 	}
 
-	kindService := newKind(a.clientSet, imageService, a.config)
-	err = loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
+	kindService := serviceBuilder.GetKindService(a.clientSet, imageService, a.config)
+
+	err = replaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.ApplyKind(a.namespace, splitLines)
 	})
 

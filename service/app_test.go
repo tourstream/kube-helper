@@ -14,6 +14,7 @@ import (
 	"gopkg.in/h2non/gock.v1"
 	"time"
 	"errors"
+	"github.com/spf13/afero"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -417,6 +418,46 @@ func TestApplicationService_DeleteByNamespaceWithError(t *testing.T) {
 
 	fakeClientSet.PrependReactor("delete", "namespaces", errorReturnFunc)
 	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
+}
+
+func TestApplicationService_Apply(t *testing.T) {
+
+	config := loader.Config{}
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output := captureOutput(func() {
+		assert.NoError(t, appService.Apply())
+	})
+
+	assert.Contains(t, output,"Namespace \"foobar\" was generated\n")
+	assert.Contains(t, output,"There are 0 pods in the cluster\n")
 }
 
 func getApplicationService(t *testing.T, namespace string, config loader.Config) (ApplicationServiceInterface, *fake.Clientset) {
