@@ -415,7 +415,7 @@ func (a *applicationService) applyFromConfig() error {
 		return err
 	}
 
-	kindService := NewKind(a.clientSet, imageService, a.config)
+	kindService := newKind(a.clientSet, imageService, a.config)
 	err = loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.ApplyKind(a.namespace, splitLines)
 	})

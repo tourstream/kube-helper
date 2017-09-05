@@ -79,7 +79,7 @@ func (i *images) List(config loader.Cleanup) (*model.TagCollection, error) {
 
 	var ss []model.ManifestPair
 	for k, v := range s.Manifests {
-		ss = append(ss, model.ManifestPair{k, v})
+		ss = append(ss, model.ManifestPair{Key: k, Value: v})
 	}
 
 	sort.Slice(ss, func(i, j int) bool {

@@ -46,7 +46,7 @@ type kindService struct {
 	usedKind      usedKind
 }
 
-func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
+func newKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
 	k := kindService{clientsetscheme.Codecs.UniversalDeserializer(), client, imagesService, config, usedKind{}}
 	return &k
 }

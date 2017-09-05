@@ -447,7 +447,7 @@ func getKindService(t *testing.T, config loader.Config) (*kindService, *MockImag
 
 	fakeClientSet := fake.NewSimpleClientset()
 
-	return NewKind(fakeClientSet, imageServiceMock, config), imageServiceMock, fakeClientSet
+	return newKind(fakeClientSet, imageServiceMock, config), imageServiceMock, fakeClientSet
 }
 
 func captureOutput(f func()) (string) {
