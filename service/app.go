@@ -394,7 +394,7 @@ func (a *applicationService) waitForStaticIPToBeDeleted(projectID string, addres
 					break
 				}
 				fmt.Fprintf(writer,"Waiting for IP \"%s\" to be released\n", address.Name)
-				time.Sleep(time.Second * 5)
+				clock.Sleep(time.Second * 5)
 			}
 		}
 	}
