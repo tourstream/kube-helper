@@ -124,7 +124,9 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	config := loader.Config{
-		ProjectID: "test-project",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+		},
 		Database: loader.Database{
 			Instance: "testing",
 		},
@@ -185,7 +187,9 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	config := loader.Config{
-		ProjectID: "test-project",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+		},
 		Database: loader.Database{
 			Instance: "testing",
 		},
@@ -282,7 +286,9 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	config := loader.Config{
-		ProjectID: "test-project",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+		},
 		Database: loader.Database{
 			Instance: "testing",
 		},
@@ -404,7 +410,9 @@ func TestCmdCleanup(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	config := loader.Config{
-		ProjectID: "test-project",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+		},
 		Database: loader.Database{
 			Instance: "testing",
 			BaseName: "base",

@@ -28,7 +28,7 @@ func CmdCopy(c *cli.Context) error {
 	return CopyDatabaseByBranchName(c.Args().Get(0), configContainer)
 }
 
-func GetDatabaseName(databaseConfig loader.Database, branchName string) string {
+func getDatabaseName(databaseConfig loader.Database, branchName string) string {
 	if branchName == "master" {
 		return databaseConfig.BaseName
 	}
@@ -42,7 +42,7 @@ func GetDatabaseName(databaseConfig loader.Database, branchName string) string {
 
 func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) error {
 
-	databaseName := GetDatabaseName(configContainer.Database, branchName)
+	databaseName := getDatabaseName(configContainer.Database, branchName)
 
 	if databaseName == configContainer.Database.BaseName {
 		fmt.Fprint(cli.ErrWriter,"Copy to the same database makes no sense")
@@ -55,7 +55,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	database, _ := sqlService.Databases.Get(configContainer.ProjectID, configContainer.Database.Instance, databaseName).Do()
+	database, _ := sqlService.Databases.Get(configContainer.Cluster.ProjectID, configContainer.Database.Instance, databaseName).Do()
 	if database != nil {
 		fmt.Fprintf(cli.ErrWriter,"Database %s already exists", databaseName)
 		return nil
@@ -66,7 +66,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	instance, err := sqlService.Instances.Get(configContainer.ProjectID, configContainer.Database.Instance).Do()
+	instance, err := sqlService.Instances.Get(configContainer.Cluster.ProjectID, configContainer.Database.Instance).Do()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -86,13 +86,13 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	exportRequest.ExportContext.Databases = append(exportRequest.ExportContext.Databases, configContainer.Database.BaseName)
 	exportRequest.ExportContext.Uri = exportFilePath
 
-	operation, err := sqlService.Instances.Export(configContainer.ProjectID, configContainer.Database.Instance, exportRequest).Do()
+	operation, err := sqlService.Instances.Export(configContainer.Cluster.ProjectID, configContainer.Database.Instance, exportRequest).Do()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "export of database")
+	err = waitForOperationToFinish(sqlService, operation, configContainer.Cluster.ProjectID, "export of database")
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -151,7 +151,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	defer storageService.DeleteFile(tmpName)
 
-	operation, err = sqlService.Databases.Insert(configContainer.ProjectID, configContainer.Database.Instance, &sqladmin.Database{
+	operation, err = sqlService.Databases.Insert(configContainer.Cluster.ProjectID, configContainer.Database.Instance, &sqladmin.Database{
 		Name: databaseName,
 	}).Do()
 
@@ -159,7 +159,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "creation of database")
+	err = waitForOperationToFinish(sqlService, operation, configContainer.Cluster.ProjectID, "creation of database")
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -173,13 +173,13 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 		FileType: "SQL",
 		Uri:      importFilePath,
 	}
-	operation, err = sqlService.Instances.Import(configContainer.ProjectID, configContainer.Database.Instance, importRequest).Do()
+	operation, err = sqlService.Instances.Import(configContainer.Cluster.ProjectID, configContainer.Database.Instance, importRequest).Do()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "import of database")
+	err = waitForOperationToFinish(sqlService, operation, configContainer.Cluster.ProjectID, "import of database")
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
