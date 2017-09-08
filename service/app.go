@@ -18,7 +18,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
@@ -372,23 +371,20 @@ func (a *applicationService) isValidNamespace() error {
 }
 
 func (a *applicationService) createNamespace() error {
-	if a.namespace != api.NamespaceDefault {
-		_, err := a.clientSet.CoreV1().Namespaces().Create(
-			&v1.Namespace{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name: a.namespace,
-				},
+	_, err := a.clientSet.CoreV1().Namespaces().Create(
+		&v1.Namespace{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: a.namespace,
 			},
-		)
-		if err != nil {
-			return err
-		}
-
-		fmt.Fprintf(writer,"Namespace \"%s\" was generated\n", a.namespace)
-
-		return nil
+		},
+	)
+	if err != nil {
+		return err
 	}
-	return errors.New(fmt.Sprintf("Namespace \"%s\" was already generated\n", a.namespace))
+
+	fmt.Fprintf(writer, "Namespace \"%s\" was generated\n", a.namespace)
+
+	return nil
 }
 
 func (a *applicationService) applyFromConfig() error {

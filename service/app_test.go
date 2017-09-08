@@ -420,6 +420,25 @@ func TestApplicationService_DeleteByNamespaceWithError(t *testing.T) {
 	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 }
 
+func TestApplicationService_ApplyWithInvalidNamespace(t *testing.T) {
+
+	config := loader.Config{}
+	appService, _ := getApplicationService(t, "foo_bar", config)
+
+
+	assert.EqualError(t, appService.Apply(), "[a-z0-9]([-a-z0-9]*[a-z0-9])? (e.g. '123-abc', regex used for validation is 'my-name')")
+}
+
+func TestApplicationService_ApplyWithErrorDuringNamespaceCreation(t *testing.T) {
+
+	config := loader.Config{}
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	fakeClientSet.PrependReactor("create", "namespaces", errorReturnFunc)
+
+	assert.EqualError(t, appService.Apply(), "explode")
+}
+
 func TestApplicationService_Apply(t *testing.T) {
 
 	config := loader.Config{}
