@@ -30,7 +30,7 @@ func CmdCleanup(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-	databases, err := getDatabases(sqlService, configContainer.ProjectID, configContainer.Database.Instance)
+	databases, err := getDatabases(sqlService, configContainer.Cluster.ProjectID, configContainer.Database.Instance)
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -44,11 +44,11 @@ func CmdCleanup(c *cli.Context) error {
 		branch := strings.TrimPrefix(database, configContainer.Database.PrefixBranchDatabase)
 
 		if util.InArray(branches, branch) == false {
-			operation, err := sqlService.Databases.Delete(configContainer.ProjectID, configContainer.Database.Instance, database).Do()
+			operation, err := sqlService.Databases.Delete(configContainer.Cluster.ProjectID, configContainer.Database.Instance, database).Do()
 			if err != nil {
 				return cli.NewExitError(err.Error(), 1)
 			}
-			err = waitForOperationToFinish(sqlService, operation, configContainer.ProjectID, "delete of database")
+			err = waitForOperationToFinish(sqlService, operation, configContainer.Cluster.ProjectID, "delete of database")
 			if err != nil {
 				return cli.NewExitError(err.Error(), 1)
 			}
