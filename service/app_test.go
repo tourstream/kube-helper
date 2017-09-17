@@ -600,6 +600,170 @@ func TestApplicationService_Apply(t *testing.T) {
 	assert.Contains(t, output, "There are 0 pods in the cluster\n")
 }
 
+func TestApplicationService_ApplyWithErrorForImageService(t *testing.T) {
+
+	config := loader.Config{}
+	appService, _ := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	serviceBuilderMock.On("GetImagesService").Return(nil, errors.New("explode"))
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "explode")
+	})
+
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
+}
+
+func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) {
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type: "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", errorReturnFunc)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "explode")
+	})
+
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
+}
+
+func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) {
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type: "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
+		MatchType("json").
+		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
+		ReplyError(errors.New("explode"))
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	list := &v1beta1.IngressList{
+		Items: []v1beta1.Ingress{
+			{},
+			{
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				Status: v1beta1.IngressStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{IP: "127.0.0.1"},
+						},
+					}}},
+		},
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+		gock.Off()
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "Post https://www.googleapis.com/dns/v1/projects/foobar-dns/managedZones/zone-test/changes?alt=json: explode")
+	})
+
+	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1\n")
+}
+
 func TestApplicationService_ApplyWithDNS(t *testing.T) {
 
 	config := loader.Config{
