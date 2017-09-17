@@ -15,6 +15,7 @@ import (
 	"time"
 	"errors"
 	"github.com/spf13/afero"
+	"os"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -425,7 +426,6 @@ func TestApplicationService_ApplyWithInvalidNamespace(t *testing.T) {
 	config := loader.Config{}
 	appService, _ := getApplicationService(t, "foo_bar", config)
 
-
 	assert.EqualError(t, appService.Apply(), "[a-z0-9]([-a-z0-9]*[a-z0-9])? (e.g. '123-abc', regex used for validation is 'my-name')")
 }
 
@@ -437,6 +437,127 @@ func TestApplicationService_ApplyWithErrorDuringNamespaceCreation(t *testing.T) 
 	fakeClientSet.PrependReactor("create", "namespaces", errorReturnFunc)
 
 	assert.EqualError(t, appService.Apply(), "explode")
+}
+
+func TestApplicationService_ApplyWithEndpointsWithError(t *testing.T) {
+
+	config := loader.Config{
+		Endpoints: loader.Endpoints{
+			Enabled: true,
+		},
+		DNS: loader.DNSConfig{
+			BaseDomain:   "dummy.local.",
+			DomainSpacer: "-",
+		},
+	}
+	appService, _ := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	createAuthCall()
+
+	gock.New("https://servicemanagement.googleapis.com").
+		Get("/v1/services/foobar-dummy.local/configs").
+		ReplyError(errors.New("explode"))
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "Get https://servicemanagement.googleapis.com/v1/services/foobar-dummy.local/configs?alt=json: explode")
+	})
+
+	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Empty(t, os.Getenv("ENDPOINT_VERSION"))
+	assert.Empty(t, os.Getenv("ENDPOINT_DOMAIN"))
+	assert.True(t, gock.IsDone())
+}
+
+func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
+
+	config := loader.Config{
+		Endpoints: loader.Endpoints{
+			Enabled: true,
+		},
+		DNS: loader.DNSConfig{
+			BaseDomain:   "dummy.local.",
+			DomainSpacer: "-",
+		},
+	}
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	response := `
+{
+  "serviceConfigs": [
+    {
+      "name": "foobar-dummy.local",
+      "title": "foobar API",
+      "documentation": {},
+      "usage": {},
+      "id": "2017-08-30r0"
+    },
+    {
+      "name": "foobar-dummy.local",
+      "title": "foobar API",
+      "documentation": {
+        "summary": "foobar API"
+      },
+      "usage": {},
+      "id": "2017-08-29r0"
+    }
+  ]
+}
+
+	`
+	createAuthCall()
+
+	gock.New("https://servicemanagement.googleapis.com").
+		Get("/v1/services/foobar-dummy.local/configs").
+		Reply(200).
+		JSON(response)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+		gock.Off()
+	}()
+
+	output := captureOutput(func() {
+		assert.NoError(t, appService.Apply())
+	})
+
+	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Contains(t, output, "There are 0 pods in the cluster\n")
+	assert.Equal(t, "2017-08-30r0", os.Getenv("ENDPOINT_VERSION"))
+	assert.Equal(t, "foobar-dummy.local", os.Getenv("ENDPOINT_DOMAIN"))
+	assert.True(t, gock.IsDone())
 }
 
 func TestApplicationService_Apply(t *testing.T) {
@@ -475,8 +596,123 @@ func TestApplicationService_Apply(t *testing.T) {
 		assert.NoError(t, appService.Apply())
 	})
 
-	assert.Contains(t, output,"Namespace \"foobar\" was generated\n")
-	assert.Contains(t, output,"There are 0 pods in the cluster\n")
+	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Contains(t, output, "There are 0 pods in the cluster\n")
+}
+
+func TestApplicationService_ApplyWithDNS(t *testing.T) {
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			Type: "gcp",
+			ProjectID: "testing",
+		},
+		DNS: loader.DNSConfig{
+			ProjectID:    "foobar-dns",
+			ManagedZone:  "zone-test",
+			DomainSpacer: "-",
+			BaseDomain:   "testing",
+			CNameSuffix:  []string{"-cname.domain."},
+		},
+	}
+
+	response := `
+{
+  "kind": "dns#change",
+  "status": "done"
+
+}`
+
+	responseAddressList := `
+{
+  "kind": "compute#addressList",
+  "items": [
+    {
+	  "kind": "compute#address",
+	  "name": "foobar-ip"
+	}
+  ]
+}`
+
+	createAuthCall()
+
+	gock.New("https://www.googleapis.com").
+		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
+		MatchType("json").
+		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
+		Reply(200).
+		JSON(response)
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(200).
+		JSON(responseAddressList)
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(200).
+		JSON(`{"kind": "compute#address","name": "foobar-ip"}`)
+
+	gock.New("https://www.googleapis.com").
+		Get("/compute/v1/projects/testing/global/addresses").
+		Reply(404)
+
+
+
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	list := &v1beta1.IngressList{
+		Items: []v1beta1.Ingress{
+			{},
+			{
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				Status: v1beta1.IngressStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{IP: "127.0.0.1"},
+						},
+					}}},
+		},
+	}
+
+	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+		gock.Off()
+	}()
+
+	output := captureOutput(func() {
+		assert.NoError(t, appService.Apply())
+	})
+
+	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1\n")
+	assert.Contains(t, output, "Created DNS Entries for 127.0.0.1\n")
+	assert.Contains(t, output, "There are 0 pods in the cluster\n")
 }
 
 func getApplicationService(t *testing.T, namespace string, config loader.Config) (ApplicationServiceInterface, *fake.Clientset) {
@@ -502,7 +738,6 @@ func getApplicationService(t *testing.T, namespace string, config loader.Config)
 func createAuthCall() {
 	gock.New("https://accounts.google.com").
 		Post("/o/oauth2/token").
-		Persist().
 		Reply(200).
 		JSON(map[string]string{"foo": "bar"})
 }

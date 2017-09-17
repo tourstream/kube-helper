@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"time"
 
@@ -25,6 +24,7 @@ import (
 var serviceBuilder BuilderInterface = new(Builder)
 var clock util_clock.Clock = new(util_clock.RealClock)
 var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
+
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
 	Apply() error
@@ -106,7 +106,7 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
-	fmt.Fprintf(writer,"There are %d pods in the cluster\n", len(pods.Items))
+	fmt.Fprintf(writer, "There are %d pods in the cluster\n", len(pods.Items))
 
 	return nil
 }
@@ -209,7 +209,7 @@ func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSCon
 		return err
 	}
 
-	log.Printf("Created DNS Entries for %s", ip)
+	fmt.Fprintf(writer, "Created DNS Entries for %s\n", ip)
 
 	return nil
 }

@@ -11,7 +11,6 @@ import (
 
 func TestBucketService_DeleteFile(t *testing.T) {
 
-
 	defer gock.Off() // Flush pending mocks after test execution
 
 	gock.New("https://accounts.google.com").
@@ -30,7 +29,6 @@ func TestBucketService_DeleteFile(t *testing.T) {
 }
 
 func TestBucketService_RemoveBucketACL(t *testing.T) {
-
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -141,7 +139,6 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 		Reply(200).
 		BodyString("file_content")
 
-
 	result, err := getService(t).DownLoadFile("dummy.foobar", "service_account_test")
 
 	buf := new(bytes.Buffer)
@@ -167,7 +164,6 @@ func TestBucketService_DownLoadFileWithErrorForSetAcl(t *testing.T) {
 		ReplyError(errors.New("SetBucketACLError"))
 
 	_, err := getService(t).DownLoadFile("dummy.foobar", "service_account_test")
-
 
 	assert.EqualError(t, err, "Post https://www.googleapis.com/storage/v1/b/foobar/acl?alt=json: SetBucketACLError")
 	assert.True(t, gock.IsDone())
@@ -216,7 +212,6 @@ func TestBucketService_DownLoadFileWithErrorToGetObjectInformation(t *testing.T)
 		ReplyError(errors.New("ObjectInfoError"))
 
 	_, err := getService(t).DownLoadFile("dummy.foobar", "service_account_test")
-
 
 	assert.EqualError(t, err, "Get https://www.googleapis.com/storage/v1/b/foobar/o/dummy.foobar?alt=json: ObjectInfoError")
 	assert.True(t, gock.IsDone())
@@ -274,9 +269,7 @@ func TestBucketService_DownLoadFileWithDownloadError(t *testing.T) {
 		Get("/download").
 		ReplyError(errors.New("DownloadError"))
 
-
 	_, err := getService(t).DownLoadFile("dummy.foobar", "service_account_test")
-
 
 	assert.EqualError(t, err, "Get https://never.work.local/download: DownloadError")
 	assert.True(t, gock.IsDone())
