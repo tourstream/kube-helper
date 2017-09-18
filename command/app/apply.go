@@ -37,6 +37,12 @@ func CmdApply(c *cli.Context) error {
 		tag = "latest"
 	}
 
+	imagesService, err := serviceBuilder.GetImagesService()
+
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
 	hasTag, err := imagesService.HasTag(configContainer.Cleanup, tag)
 
 	if err != nil {
@@ -44,9 +50,8 @@ func CmdApply(c *cli.Context) error {
 	}
 
 	if !hasTag {
-		return cli.NewExitError(fmt.Sprintf("No Image '%s' found for namespace '%s' ",tag, kubernetesNamespace), 0)
+		return cli.NewExitError(fmt.Sprintf("No Image '%s' found for namespace '%s' ", tag, kubernetesNamespace), 0)
 	}
-
 
 	err = appService.Apply()
 

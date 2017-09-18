@@ -4,6 +4,8 @@ matrix:
   include:
     - os: linux
       go: 1.8.x
+    - os: linux
+      go: 1.9.x
 
 go_import_path: kube-helper
 
@@ -16,12 +18,8 @@ install:
   - dep ensure
   - go get github.com/mattn/goveralls github.com/modocache/gover
 
-before_script:
-  - PKGS=$(go list ./... | grep -v /vendor/ | grep -v mocks )
-
 script:
   - go build
-  - go vet $PKGS
-  - go list -f '{{if len .TestGoFiles}}"go test -coverprofile={{.Dir}}/.coverprofile {{.ImportPath}}"{{end}}' $PKGS | xargs -L 1 sh -c
+  - ./build/tests.sh
   - gover
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then goveralls -coverprofile=gover.coverprofile -service=travis-ci -repotoken $COVERALLS_TOKEN; fi

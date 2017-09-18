@@ -16,6 +16,8 @@ import (
 	"github.com/urfave/cli"
 	"gopkg.in/h2non/gock.v1"
 	"os"
+	"time"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 func TestCmdCopyWithWrongConfig(t *testing.T) {
@@ -195,11 +197,15 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 	serviceBuilderMock.On("GetStorageService", "foobar-testing").Return(storageServiceMock, nil)
 
+	oldClock := clock
+	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
 		fileSystem = oldFileSystem
+		clock = oldClock
 	}()
 
 	cli.OsExiter = func(exitCode int) {

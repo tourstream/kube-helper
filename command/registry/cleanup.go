@@ -12,16 +12,24 @@ import (
 	"github.com/urfave/cli"
 	"fmt"
 	"regexp"
+	"kube-helper/model"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
-var imagesService service.ImagesInterface = new(service.Images)
+var serviceBuilder service.BuilderInterface = new(service.Builder)
+
 var writer io.Writer = os.Stdout
 
 func CmdCleanup(c *cli.Context) error {
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
+
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+
+	imagesService, err := serviceBuilder.GetImagesService()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -38,7 +46,7 @@ func CmdCleanup(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	manifestsForDeletion := map[string]service.Manifest{}
+	manifestsForDeletion := map[string]model.Manifest{}
 
 	latestTagFound := false
 

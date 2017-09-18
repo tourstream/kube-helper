@@ -44,11 +44,6 @@ func TestCmdApplyWithErrorForApplicationService(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 
-	oldImagesLoader := imagesService
-	imagesLoaderMock := new(_mocks.ImagesInterface)
-
-	imagesService = imagesLoaderMock
-
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
@@ -56,7 +51,51 @@ func TestCmdApplyWithErrorForApplicationService(t *testing.T) {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
-		imagesService = oldImagesLoader
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 1, exitCode)
+	}
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdApply, []string{"apply", "-c", "never.yml", "foobar"})
+	})
+
+	assert.Equal(t, "explode\n", errOutput)
+	assert.Empty(t, output)
+}
+
+func TestCmdApplyWithErrorForImagesService(t *testing.T) {
+
+	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		ProjectID: "test-project",
+		Zone:      "berlin",
+		ClusterID: "testing",
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	fakeClientSet := new(fake.Clientset)
+
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(new(_mocks.ApplicationServiceInterface), nil)
+	serviceBuilderMock.On("GetImagesService").Return(nil, errors.New("explode"))
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -94,21 +133,19 @@ func TestCmdApplyWithErrorForHasTag(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	oldImagesLoader := imagesService
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-	imagesService = imagesLoaderMock
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-latest").Return(false, errors.New("explode"))
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "staging", config).Return(fakeApplicationService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
-		imagesService = oldImagesLoader
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -146,21 +183,18 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	oldImagesLoader := imagesService
 	imagesLoaderMock := new(_mocks.ImagesInterface)
-
-	imagesService = imagesLoaderMock
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "latest").Return(false, nil)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "production", config).Return(fakeApplicationService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
-		imagesService = oldImagesLoader
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -198,15 +232,13 @@ func TestCmdApplyWithErrorForCreateApplication(t *testing.T) {
 
 	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	oldImagesLoader := imagesService
 	imagesLoaderMock := new(_mocks.ImagesInterface)
-
-	imagesService = imagesLoaderMock
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-foobar-latest").Return(true, nil)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	fakeApplicationService.On("Apply").Return(errors.New("explode"))
 
@@ -214,7 +246,6 @@ func TestCmdApplyWithErrorForCreateApplication(t *testing.T) {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
-		imagesService = oldImagesLoader
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -253,15 +284,13 @@ func TestCmdApply(t *testing.T) {
 	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
 
-	oldImagesLoader := imagesService
 	imagesLoaderMock := new(_mocks.ImagesInterface)
-
-	imagesService = imagesLoaderMock
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-foobar-latest").Return(true, nil)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
 
 	fakeApplicationService.On("Apply").Return(nil)
 
@@ -269,7 +298,6 @@ func TestCmdApply(t *testing.T) {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
-		imagesService = oldImagesLoader
 	}()
 
 	cli.OsExiter = func(exitCode int) {

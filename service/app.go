@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"time"
 
@@ -12,15 +11,19 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-	"google.golang.org/api/compute/v1"
+	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/servicemanagement/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
+
+var serviceBuilder BuilderInterface = new(Builder)
+var clock util_clock.Clock = new(util_clock.RealClock)
+var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
@@ -34,11 +37,11 @@ type applicationService struct {
 	namespace         string
 	config            loader.Config
 	dnsService        *dns.Service
-	computeService    *compute.Service
+	computeService    *compute_v1.Service
 	serviceManagement *servicemanagement.APIService
 }
 
-func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
+func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute_v1.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
 	a := new(applicationService)
 	a.clientSet = client
 	a.namespace = namespace
@@ -84,7 +87,7 @@ func (a *applicationService) Apply() error {
 
 	if !update && a.config.Cluster.Type == "gcp" {
 
-		ip, err := a.getLoadBalancerIP(60)
+		ip, err := a.getGcpLoadBalancerIP(60)
 
 		if err != nil {
 			return err
@@ -103,13 +106,13 @@ func (a *applicationService) Apply() error {
 		return err
 	}
 
-	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+	fmt.Fprintf(writer, "There are %d pods in the cluster\n", len(pods.Items))
 
 	return nil
 }
 
 func (a *applicationService) DeleteByNamespace() error {
-	ip, _ := a.getLoadBalancerIP(10)
+	ip, _ := a.getGcpLoadBalancerIP(10)
 
 	var projectId string
 
@@ -123,33 +126,19 @@ func (a *applicationService) DeleteByNamespace() error {
 		return err
 	}
 
-	err = a.deleteService()
-
-	if err != nil {
-		return err
-	}
-
-	err = a.deleteDeployment()
-
-	if err != nil {
-		return err
-	}
-
 	err = a.deleteNamespace()
 
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Namespace \"%s\" was deleted\n", a.namespace)
+	fmt.Fprintf(writer, "Namespace \"%s\" was deleted\n", a.namespace)
 
 	err = a.deleteDNSEntries(ip, a.config.DNS)
 
 	if err != nil {
 		return err
 	}
-
-	log.Printf("Deleted DNS Entries for %s", ip)
 
 	return nil
 }
@@ -200,10 +189,6 @@ func (a *applicationService) deleteNamespace() error {
 }
 
 func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSConfig) error {
-	if ip == "" {
-		return errors.New("No Loadbalancer IP found.")
-	}
-
 	var cnames []string
 
 	for _, cnameSuffix := range dnsConfig.CNameSuffix {
@@ -220,7 +205,7 @@ func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSCon
 		return err
 	}
 
-	log.Printf("Created DNS Entries for %s", ip)
+	fmt.Fprintf(writer, "Created DNS Entries for %s\n", ip)
 
 	return nil
 }
@@ -244,7 +229,7 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 	if err != nil {
 		return err
 	}
-
+	fmt.Fprintf(writer, "Deleted DNS Entries for %s", ip)
 	return nil
 }
 
@@ -267,13 +252,12 @@ func (a *applicationService) deleteIngress(projectID string) error {
 	}
 
 	for _, ingress := range list.Items {
-		addressName := ingress.Annotations["ingress.kubernetes.io/static-ip"]
-		if len(addressName) > 0 {
+		if addressName, ok := ingress.Annotations["ingress.kubernetes.io/static-ip"]; ok && addressName != "" {
 			err := a.waitForStaticIPToBeDeleted(projectID, addressName, 60)
 			if err != nil {
 				return err
 			}
-			log.Printf("%s is deleted and so the ingres with name \"%s\" is removed", addressName, ingress.Name)
+			fmt.Fprintf(writer, "%s is deleted and so the ingres with name \"%s\" is removed\n", addressName, ingress.Name)
 
 		}
 	}
@@ -281,53 +265,48 @@ func (a *applicationService) deleteIngress(projectID string) error {
 	return nil
 }
 
-func (a *applicationService) deleteDeployment() error {
-	return a.clientSet.ExtensionsV1beta1().Deployments(a.namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
-
-}
-
-func (a *applicationService) deleteService() error {
-
-	list, err := a.clientSet.CoreV1().Services(a.namespace).List(meta_v1.ListOptions{})
-
-	if err != nil {
-		return err
-	}
-
-	for _, service := range list.Items {
-		err = a.clientSet.CoreV1().Services(a.namespace).Delete(service.Name, &meta_v1.DeleteOptions{})
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (a *applicationService) getLoadBalancerIP(maxRetries int) (string, error) {
+func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error) {
 	var ip string
 
-	for retries := 0; retries < maxRetries; retries++ {
-		loadbalancer, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get("loadbalancer", meta_v1.GetOptions{})
+	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
 
-		if err != nil {
-			return "", err
-		}
-
-		if len(loadbalancer.Status.LoadBalancer.Ingress) > 0 {
-			ip = loadbalancer.Status.LoadBalancer.Ingress[0].IP
-			break
-		}
-		log.Print("Waiting for Loadbalancer IP")
-		time.Sleep(time.Second * 5)
+	if err != nil {
+		return "", err
 	}
-	if ip == "" {
-		return "", errors.New("No Loadbalancer IP found")
-	}
-	log.Printf("Loadbalancer IP : %s", ip)
 
-	return ip, nil
+	for _, ingress := range ingressList.Items {
+		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gcp" {
+			ingressWait := ingress
+
+			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
+				ip = ingress.Status.LoadBalancer.Ingress[0].IP
+			}
+
+			if ip == "" {
+				for retries := 0; retries < maxRetries; retries++ {
+					ingressWait, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get(ingressWait.Name, meta_v1.GetOptions{})
+
+					if err != nil {
+						return "", err
+					}
+
+					if len(ingressWait.Status.LoadBalancer.Ingress) > 0 {
+						ip = ingressWait.Status.LoadBalancer.Ingress[0].IP
+						break
+					}
+					fmt.Fprint(writer, "Waiting for Loadbalancer IP\n")
+					clock.Sleep(time.Second * 5)
+				}
+			}
+
+			if ip != "" {
+				fmt.Fprintf(writer, "Loadbalancer IP : %s\n", ip)
+				return ip, nil
+			}
+		}
+	}
+
+	return "", errors.New("no Loadbalancer IP found")
 }
 
 func (a *applicationService) getResourceRecordSets(domain string, cnames []string, ip string) []*dns.ResourceRecordSet {
@@ -371,8 +350,8 @@ func (a *applicationService) waitForStaticIPToBeDeleted(projectID string, addres
 				if err != nil {
 					break
 				}
-				log.Printf("Waiting for IP \"%s\" to be released", address.Name)
-				time.Sleep(time.Second * 5)
+				fmt.Fprintf(writer, "Waiting for IP \"%s\" to be released\n", address.Name)
+				clock.Sleep(time.Second * 5)
 			}
 		}
 	}
@@ -388,28 +367,33 @@ func (a *applicationService) isValidNamespace() error {
 }
 
 func (a *applicationService) createNamespace() error {
-	if a.namespace != api.NamespaceDefault {
-		_, err := a.clientSet.CoreV1().Namespaces().Create(
-			&v1.Namespace{
-				ObjectMeta: meta_v1.ObjectMeta{
-					Name: a.namespace,
-				},
+	_, err := a.clientSet.CoreV1().Namespaces().Create(
+		&v1.Namespace{
+			ObjectMeta: meta_v1.ObjectMeta{
+				Name: a.namespace,
 			},
-		)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Namespace \"%s\" was generated\n", a.namespace)
-
-		return nil
+		},
+	)
+	if err != nil {
+		return err
 	}
-	return errors.New(fmt.Sprintf("Namespace \"%s\" was already generated\n", a.namespace))
+
+	fmt.Fprintf(writer, "Namespace \"%s\" was generated\n", a.namespace)
+
+	return nil
 }
 
 func (a *applicationService) applyFromConfig() error {
-	kindService := NewKind(a.clientSet, new(Images), a.config)
-	err := loader.ReplaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
+
+	imageService, err := serviceBuilder.GetImagesService()
+
+	if err != nil {
+		return err
+	}
+
+	kindService := serviceBuilder.GetKindService(a.clientSet, imageService, a.config)
+
+	err = replaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.ApplyKind(a.namespace, splitLines)
 	})
 

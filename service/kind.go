@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"kube-helper/loader"
@@ -16,11 +15,16 @@ import (
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
+	"kube-helper/model"
+	"os"
+	"io"
 )
+
+var writer io.Writer = os.Stdout
 
 type KindInterface interface {
 	ApplyKind(kubernetesNamespace string, fileLines []string) error
-	CleanupKind(kubernetesNamespace string, fileLines []string) error
+	CleanupKind(kubernetesNamespace string) error
 }
 
 type usedKind struct {
@@ -42,15 +46,9 @@ type kindService struct {
 	usedKind      usedKind
 }
 
-func NewKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
-	k := new(kindService)
-
-	k.decoder = clientsetscheme.Codecs.UniversalDeserializer()
-	k.clientSet = client
-	k.imagesService = imagesService
-	k.config = config
-
-	return k
+func newKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
+	k := kindService{clientsetscheme.Codecs.UniversalDeserializer(), client, imagesService, config, usedKind{}}
+	return &k
 }
 
 func (k *kindService) CleanupKind(kubernetesNamespace string) error {
@@ -115,8 +113,7 @@ func (k *kindService) cleanupSecret(kubernetesNamespace string) error {
 		if err != nil {
 			return err
 		}
-
-		log.Printf("Secret \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "Secret \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -141,7 +138,7 @@ func (k *kindService) cleanupConfigMaps(kubernetesNamespace string) error {
 			return err
 		}
 
-		log.Printf("ConfigMap \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "ConfigMap \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -166,7 +163,7 @@ func (k *kindService) cleanupServices(kubernetesNamespace string) error {
 			return err
 		}
 
-		log.Printf("Service \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "Service \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -191,7 +188,7 @@ func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
 			return err
 		}
 
-		log.Printf("Deployment \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "Deployment \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -216,7 +213,7 @@ func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
 			return err
 		}
 
-		log.Printf("Ingress \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "Ingress \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -246,7 +243,7 @@ func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 			return err
 		}
 
-		log.Printf("CronJob \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "CronJob \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -271,7 +268,7 @@ func (k *kindService) cleanupPersistentVolumeClaims(kubernetesNamespace string) 
 			return err
 		}
 
-		log.Printf("PersistentVolumeClaim \"%s\" was removed.\n", name)
+		fmt.Fprintf(writer, "PersistentVolumeClaim \"%s\" was removed.\n", name)
 	}
 
 	return nil
@@ -318,7 +315,7 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secre
 
 		k.usedKind.secret = append(k.usedKind.secret, secret.Name)
 
-		log.Printf("Secret \"%s\" was generated\n", secret.Name)
+		fmt.Fprintf(writer, "Secret \"%s\" was generated.\n", secret.Name)
 
 		return nil
 	}
@@ -331,12 +328,17 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secre
 
 	k.usedKind.secret = append(k.usedKind.secret, secret.Name)
 
-	log.Printf("Secret \"%s\" was updated\n", secret.Name)
+	fmt.Fprintf(writer, "Secret \"%s\" was updated.\n", secret.Name)
 
 	return nil
 }
 
 func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
+
+	if !k.config.Cluster.AlphaSupport {
+		fmt.Fprintf(writer, "CronJob \"%s\" was not generated or updated, because alpha support is not enabled.\n", cronJob.Name)
+		return nil
+	}
 
 	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
@@ -357,7 +359,7 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 
 		k.usedKind.cronJob = append(k.usedKind.cronJob, cronJob.Name)
 
-		log.Printf("CronJob \"%s\" was generated\n", cronJob.Name)
+		fmt.Fprintf(writer, "CronJob \"%s\" was generated.\n", cronJob.Name)
 
 		return nil
 	}
@@ -369,7 +371,7 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 
 	k.usedKind.cronJob = append(k.usedKind.cronJob, cronJob.Name)
 
-	log.Printf("CronJob \"%s\" was updated\n", cronJob.Name)
+	fmt.Fprintf(writer, "CronJob \"%s\" was updated.\n", cronJob.Name)
 
 	return nil
 }
@@ -395,7 +397,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v
 
 		k.usedKind.deployment = append(k.usedKind.deployment, deployment.Name)
 
-		log.Printf("Deployment \"%s\" was generated\n", deployment.Name)
+		fmt.Fprintf(writer, "Deployment \"%s\" was generated.\n", deployment.Name)
 
 		return nil
 	}
@@ -408,7 +410,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v
 
 	k.usedKind.deployment = append(k.usedKind.deployment, deployment.Name)
 
-	log.Printf("Deployment \"%s\" was updated\n", deployment.Name)
+	fmt.Fprintf(writer, "Deployment \"%s\" was updated.\n", deployment.Name)
 
 	return nil
 }
@@ -427,7 +429,7 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Serv
 
 		k.usedKind.service = append(k.usedKind.service, service.Name)
 
-		log.Printf("Service \"%s\" was generated\n", service.Name)
+		fmt.Fprintf(writer, "Service \"%s\" was generated.\n", service.Name)
 
 		return nil
 	}
@@ -448,7 +450,7 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Serv
 
 	k.usedKind.service = append(k.usedKind.service, service.Name)
 
-	log.Printf("Service \"%s\" was updated\n", service.Name)
+	fmt.Fprintf(writer, "Service \"%s\" was updated.\n", service.Name)
 
 	return nil
 }
@@ -467,7 +469,7 @@ func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *v1.
 
 		k.usedKind.configMap = append(k.usedKind.configMap, configMap.Name)
 
-		log.Printf("ConfigMap \"%s\" was generated\n", configMap.Name)
+		fmt.Fprintf(writer, "ConfigMap \"%s\" was generated.\n", configMap.Name)
 
 		return nil
 	}
@@ -480,7 +482,7 @@ func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *v1.
 
 	k.usedKind.configMap = append(k.usedKind.configMap, configMap.Name)
 
-	log.Printf("ConfigMap \"%s\" was updated\n", configMap.Name)
+	fmt.Fprintf(writer, "ConfigMap \"%s\" was updated.\n", configMap.Name)
 
 	return nil
 }
@@ -498,7 +500,7 @@ func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolu
 
 		k.usedKind.persistentVolume = append(k.usedKind.persistentVolume, persistentVolume.Name)
 
-		log.Printf("PersistentVolume \"%s\" was generated\n", persistentVolume.Name)
+		fmt.Fprintf(writer, "PersistentVolume \"%s\" was generated.\n", persistentVolume.Name)
 
 		return nil
 	}
@@ -511,7 +513,7 @@ func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolu
 
 	k.usedKind.persistentVolume = append(k.usedKind.persistentVolume, persistentVolume.Name)
 
-	log.Printf("PersistentVolume \"%s\" was updated\n", persistentVolume.Name)
+	fmt.Fprintf(writer, "PersistentVolume \"%s\" was updated.\n", persistentVolume.Name)
 
 	return nil
 }
@@ -529,7 +531,7 @@ func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, pe
 
 		k.usedKind.persistentVolumeClaim = append(k.usedKind.persistentVolumeClaim, persistentVolumeClaim.Name)
 
-		log.Printf("PersistentVolumeClaim \"%s\" was generated\n", persistentVolumeClaim.Name)
+		fmt.Fprintf(writer, "PersistentVolumeClaim \"%s\" was generated.\n", persistentVolumeClaim.Name)
 
 		return nil
 	}
@@ -546,7 +548,7 @@ func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, pe
 
 	k.usedKind.persistentVolumeClaim = append(k.usedKind.persistentVolumeClaim, persistentVolumeClaim.Name)
 
-	log.Printf("PersistentVolumeClaim \"%s\" was updated\n", persistentVolumeClaim.Name)
+	fmt.Fprintf(writer, "PersistentVolumeClaim \"%s\" was updated.\n", persistentVolumeClaim.Name)
 
 	return nil
 }
@@ -564,7 +566,7 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 
 		k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 
-		log.Printf("Ingress \"%s\" was generated\n", ingress.Name)
+		fmt.Fprintf(writer, "Ingress \"%s\" was generated.\n", ingress.Name)
 
 		return nil
 	}
@@ -577,14 +579,12 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 
 	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 
-	log.Printf("Ingress \"%s\" was updated\n", ingress.Name)
+	fmt.Fprintf(writer, "Ingress \"%s\" was updated.\n", ingress.Name)
 
 	return nil
 }
 
 func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, kubernetesNamespace string) error {
-
-	var imagesService ImagesInterface = new(Images)
 
 	for idx, container := range containers {
 
@@ -592,7 +592,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 			continue
 		}
 
-		images, err := imagesService.List(loader.Cleanup{ImagePath: container.Image})
+		images, err := k.imagesService.List(loader.Cleanup{ImagePath: container.Image})
 
 		if err != nil {
 			return err
@@ -622,7 +622,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 	return nil
 }
 
-func getVersionForLatestTag(latestTag string, images *TagCollection) string {
+func getVersionForLatestTag(latestTag string, images *model.TagCollection) string {
 	for _, manifest := range images.Manifests {
 		if util.InArray(manifest.Tags, latestTag) {
 			for _, tag := range manifest.Tags {
