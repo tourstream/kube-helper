@@ -560,6 +560,86 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 	assert.True(t, gock.IsDone())
 }
 
+func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
+
+	config := loader.Config{}
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return functionCall([]string{})
+	}
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	fakeClientSet.PrependReactor("list", "pods", errorReturnFunc)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "explode")
+	})
+
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
+}
+
+func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
+
+	config := loader.Config{}
+	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldLReplaceFunc := replaceVariablesInFile
+
+	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
+		return errors.New("explode")
+	}
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(MockBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	imagesMock := new(MockImagesInterface)
+	kindMock := new(MockKindInterface)
+
+	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("CleanupKind", "foobar").Return(nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
+	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
+
+	serviceBuilder = serviceBuilderMock
+
+	defer func() {
+		replaceVariablesInFile = oldLReplaceFunc
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output := captureOutput(func() {
+		assert.EqualError(t, appService.Apply(), "explode")
+	})
+
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
+}
+
 func TestApplicationService_Apply(t *testing.T) {
 
 	config := loader.Config{}
