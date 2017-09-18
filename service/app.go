@@ -189,10 +189,6 @@ func (a *applicationService) deleteNamespace() error {
 }
 
 func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSConfig) error {
-	if ip == "" {
-		return errors.New("No Loadbalancer IP found.")
-	}
-
 	var cnames []string
 
 	for _, cnameSuffix := range dnsConfig.CNameSuffix {
