@@ -9,8 +9,6 @@ import (
 	"kube-helper/util"
 )
 
-var cleanUpExcludes = []string{"information_schema", "mysql", "performance_schema", "sys"}
-
 func CmdCleanup(c *cli.Context) error {
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
@@ -37,7 +35,7 @@ func CmdCleanup(c *cli.Context) error {
 	}
 
 	for _, database := range databases {
-		if database == configContainer.Database.BaseName {
+		if !strings.HasPrefix(database, configContainer.Database.PrefixBranchDatabase) {
 			continue
 		}
 
@@ -69,9 +67,7 @@ func getDatabases(sqlService *sqladmin.Service, projectID string, instance strin
 	}
 
 	for _, database := range list.Items {
-		if util.InArray(cleanUpExcludes, database.Name) == false {
-			databases = append(databases, database.Name)
-		}
+		databases = append(databases, database.Name)
 	}
 
 	return databases, nil
