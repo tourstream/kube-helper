@@ -194,6 +194,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		},
 		Database: loader.Database{
 			Instance: "testing",
+			PrefixBranchDatabase: "foobar_",
 		},
 	}
 
