@@ -241,20 +241,20 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		"items": [
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/information_schema",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/information_schema",
 	"name": "information_schema",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/icuaZXnvrCc7-1kwIC7BwTFfgf0\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
 	},
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/landing_page_generator",
-	"name": "landing_page_generator",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/foobar_database",
+	"name": "foobar_database",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/TOxfaosOQfEN34mlC3_6aizAB4Q\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
@@ -272,7 +272,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		JSON(map[string]string{"foo": "bar"})
 
 	gock.New("https://www.googleapis.com").
-		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/landing_page_generator").
+		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/foobar_database").
 		Reply(404).
 		JSON(map[string]string{"foo": "bar"})
 
@@ -346,20 +346,20 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 		"items": [
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/information_schema",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/information_schema",
 	"name": "ets-123",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/icuaZXnvrCc7-1kwIC7BwTFfgf0\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
 	},
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/landing_page_generator",
-	"name": "landing_page_generator",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/foobar_database",
+	"name": "foobar_database",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/TOxfaosOQfEN34mlC3_6aizAB4Q\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
@@ -379,7 +379,7 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	`
 
 	gock.New("https://www.googleapis.com").
-		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/landing_page_generator").
+		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/foobar_database").
 		Reply(200).
 		JSON(operationResponse)
 
@@ -422,6 +422,7 @@ func TestCmdCleanup(t *testing.T) {
 		Database: loader.Database{
 			Instance: "testing",
 			BaseName: "base",
+			PrefixBranchDatabase: "base_",
 		},
 	}
 
@@ -471,20 +472,30 @@ func TestCmdCleanup(t *testing.T) {
 		"items": [
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/information_schema",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/information_schema",
 	"name": "base",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/icuaZXnvrCc7-1kwIC7BwTFfgf0\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
 	},
 	{
 	"kind": "sql#database",
-	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/n2170-container-engine-spike/instances/staging/databases/landing_page_generator",
-	"name": "landing_page_generator",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/foobar_database",
+	"name": "base_branch",
 	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/TOxfaosOQfEN34mlC3_6aizAB4Q\"",
-	"project": "n2170-container-engine-spike",
+	"project": "test-project",
+	"instance": "staging",
+	"charset": "utf8",
+	"collation": "utf8_general_ci"
+	},
+	{
+	"kind": "sql#database",
+	"selfLink": "https://www.googleapis.com/sql/v1beta4/projects/test-project/instances/staging/databases/foobar_database",
+	"name": "foobar_database",
+	"etag": "\"DlgRosmIegBpXj_rR5uyhdXAbP8/TOxfaosOQfEN34mlC3_6aizAB4Q\"",
+	"project": "test-project",
 	"instance": "staging",
 	"charset": "utf8",
 	"collation": "utf8_general_ci"
@@ -504,7 +515,7 @@ func TestCmdCleanup(t *testing.T) {
 	`
 
 	gock.New("https://www.googleapis.com").
-		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/landing_page_generator").
+		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/base_branch").
 		Reply(200).
 		JSON(operationResponse)
 	output, errOutput := captureOutput(func() {
@@ -513,7 +524,7 @@ func TestCmdCleanup(t *testing.T) {
 
 	assert.Empty(t, errOutput)
 
-	assert.Equal(t, "Removed database landing_page_generator", output)
+	assert.Equal(t, "Removed database base_branch", output)
 }
 
 func captureOutput(f func()) (string, string) {
