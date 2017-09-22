@@ -10,8 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"kube-helper/util"
-
 	"github.com/spf13/afero"
 	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
@@ -271,8 +269,6 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 	var ip string
 
 	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
-
-	util.Dump(ingressList.Items)
 
 	if err != nil {
 		return "", err
