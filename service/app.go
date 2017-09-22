@@ -87,6 +87,8 @@ func (a *applicationService) Apply() error {
 
 	if !update && a.config.Cluster.Type == "gcp" {
 
+		clock.Sleep(time.Second * 10)
+
 		ip, err := a.getGcpLoadBalancerIP(60)
 
 		if err != nil {
