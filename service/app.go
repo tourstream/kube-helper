@@ -10,15 +10,17 @@ import (
 	"os"
 	"strings"
 
+	"kube-helper/util"
+
 	"github.com/spf13/afero"
 	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/servicemanagement/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api/v1"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 var serviceBuilder BuilderInterface = new(Builder)
@@ -86,8 +88,6 @@ func (a *applicationService) Apply() error {
 	}
 
 	if !update && a.config.Cluster.Type == "gcp" {
-
-		clock.Sleep(time.Second * 10)
 
 		ip, err := a.getGcpLoadBalancerIP(60)
 
@@ -272,12 +272,14 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 
 	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
 
+	util.Dump(ingressList.Items)
+
 	if err != nil {
 		return "", err
 	}
 
 	for _, ingress := range ingressList.Items {
-		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gcp" {
+		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gce" {
 			ingressWait := ingress
 
 			if len(ingress.Status.LoadBalancer.Ingress) > 0 {

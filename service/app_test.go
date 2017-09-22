@@ -802,7 +802,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -880,7 +880,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -891,7 +891,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 	}
 
 	singleObject := &v1beta1.Ingress{
-	ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+	ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -967,7 +967,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -978,7 +978,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 	}
 
 	singleObject := &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 			}}}
@@ -1057,7 +1057,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -1170,7 +1170,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gcp", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
