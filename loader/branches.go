@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 
 	"golang.org/x/oauth2/clientcredentials"
+	"strings"
 )
 
 type branch struct {
@@ -57,7 +58,7 @@ func (b *BranchLoader) LoadBranches(bitbucket Bitbucket) ([]string, error) {
 		}
 
 		for _, branch := range s.Branches {
-			branches = append(branches, branch.Name)
+			branches = append(branches, strings.ToLower(branch.Name))
 		}
 	}
 
