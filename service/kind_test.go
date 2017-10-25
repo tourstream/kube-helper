@@ -254,7 +254,7 @@ apiVersion: v1
 metadata:
   name: dummy`
 
-	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}), "no kind \"Pod2\" is registered for version \"v1\"")
+	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}, "foobar"), "no kind \"Pod2\" is registered for version \"v1\"")
 }
 
 func TestKindService_ApplyKindShouldFailWithInvalidKind(t *testing.T) {
@@ -265,7 +265,7 @@ apiVersion: v1
 metadata:
   name: dummy`
 
-	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}), "Kind Pod is not supported.")
+	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}, "foobar"), "Kind Pod is not supported.")
 }
 
 func TestKindService_ApplyKindInsertWithError(t *testing.T) {
@@ -280,7 +280,7 @@ func TestKindService_ApplyKindInsertWithError(t *testing.T) {
 		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
 		fakeClientSet.PrependReactor("create", entry.resource, errorReturnFunc)
 
-		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
+		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
 }
 
@@ -297,7 +297,7 @@ func TestKindService_ApplyKindInsert(t *testing.T) {
 		fakeClientSet.PrependReactor("create", entry.resource, nilReturnFunc)
 
 		output := captureOutput(func() {
-			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
@@ -316,7 +316,7 @@ func TestKindService_ApplyKindUpdateWithError(t *testing.T) {
 		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
 		fakeClientSet.PrependReactor("update", entry.resource, errorReturnFunc)
 
-		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
+		assert.EqualError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), "explode", fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
 }
 
@@ -333,7 +333,7 @@ func TestKindService_ApplyKindUpdate(t *testing.T) {
 		fakeClientSet.PrependReactor("update", entry.resource, nilReturnFunc)
 
 		output := captureOutput(func() {
-			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
@@ -355,7 +355,7 @@ func TestKindService_ApplyKindUpdateWithContainers(t *testing.T) {
 		imageServiceMock.On("List", loader.Cleanup{ImagePath: "eu.gcr.io/foobar/app"}).Return(new(model.TagCollection), nil)
 
 		output := captureOutput(func() {
-			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+			assert.NoError(t, kindService.ApplyKind("dummy-foobar2", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
@@ -374,7 +374,7 @@ func TestKindService_ApplyKindUpdateWithContainersError(t *testing.T) {
 
 		imageServiceMock.On("List", loader.Cleanup{ImagePath: "eu.gcr.io/foobar/app"}).Return(nil, errors.New("explode"))
 
-		assert.Error(t, kindService.ApplyKind("foobar", []string{entry.kind}), fmt.Sprintf("Test failed for resource %s", entry.resource))
+		assert.Error(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 
 	}
 }
@@ -384,7 +384,7 @@ func TestKindService_ApplyKindUpdateWithDisabledAlphaSupport(t *testing.T) {
 	kindService, _, _ := getKindService(t, loader.Config{})
 
 	output := captureOutput(func() {
-		assert.NoError(t, kindService.ApplyKind("foobar", []string{cronjob}))
+		assert.NoError(t, kindService.ApplyKind("foobar", []string{cronjob}, "foobar"))
 	})
 
 	assert.Equal(t, "CronJob \"dummy\" was not generated or updated, because alpha support is not enabled.\n", output)
