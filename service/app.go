@@ -399,7 +399,7 @@ func (a *applicationService) applyFromConfig() error {
 	kindService := serviceBuilder.GetKindService(a.clientSet, imageService, a.config)
 
 	err = replaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
-		return kindService.ApplyKind(a.prefixedNamespace, splitLines)
+		return kindService.ApplyKind(a.prefixedNamespace, splitLines, a.namespace)
 	})
 
 	if err != nil {

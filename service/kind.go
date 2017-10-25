@@ -23,7 +23,7 @@ import (
 var writer io.Writer = os.Stdout
 
 type KindInterface interface {
-	ApplyKind(kubernetesNamespace string, fileLines []string) error
+	ApplyKind(kubernetesNamespace string, fileLines []string, namespaceWithoutPrefix string) error
 	CleanupKind(kubernetesNamespace string) error
 }
 
@@ -274,7 +274,7 @@ func (k *kindService) cleanupPersistentVolumeClaims(kubernetesNamespace string) 
 	return nil
 }
 
-func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string) error {
+func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, namespaceWithoutPrefix string) error {
 
 	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
 
@@ -289,11 +289,11 @@ func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string) 
 	case "Service":
 		return k.upsertService(kubernetesNamespace, fileContent.(*v1.Service))
 	case "Deployment":
-		return k.upsertDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment))
+		return k.upsertDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment), namespaceWithoutPrefix)
 	case "Ingress":
 		return k.upsertIngress(kubernetesNamespace, fileContent.(*v1beta1.Ingress))
 	case "CronJob":
-		return k.upsertCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob))
+		return k.upsertCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob), namespaceWithoutPrefix)
 	case "PersistentVolume":
 		return k.upsertPersistentVolume(fileContent.(*v1.PersistentVolume))
 	case "PersistentVolumeClaim":
@@ -333,7 +333,7 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secre
 	return nil
 }
 
-func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob) error {
+func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob, namespaceWithoutPrefix string) error {
 
 	if !k.config.Cluster.AlphaSupport {
 		fmt.Fprintf(writer, "CronJob \"%s\" was not generated or updated, because alpha support is not enabled.\n", cronJob.Name)
@@ -341,7 +341,7 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 	}
 
 	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, kubernetesNamespace)
+		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
 
 		if err != nil {
 			return err
@@ -376,10 +376,10 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 	return nil
 }
 
-func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment) error {
+func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment, namespaceWithoutPrefix string) error {
 
 	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, kubernetesNamespace)
+		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
 
 		if err != nil {
 			return err
@@ -584,7 +584,7 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 	return nil
 }
 
-func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, kubernetesNamespace string) error {
+func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, namespaceWithoutPrefix string) error {
 
 	for idx, container := range containers {
 
@@ -601,13 +601,13 @@ func (k *kindService) setImageForContainer(strategy string, containers []v1.Cont
 		switch strategy {
 		case "latest-branching":
 
-			latestTag := loader.StagingEnvironment + "-" + kubernetesNamespace + "-latest"
+			latestTag := loader.StagingEnvironment + "-" + namespaceWithoutPrefix + "-latest"
 
-			if kubernetesNamespace == loader.StagingEnvironment {
+			if namespaceWithoutPrefix == loader.StagingEnvironment {
 				latestTag = "staging-latest"
 			}
 
-			if kubernetesNamespace == loader.ProductionEnvironment {
+			if namespaceWithoutPrefix == loader.ProductionEnvironment {
 				latestTag = "latest"
 			}
 

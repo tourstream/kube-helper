@@ -562,7 +562,7 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -606,7 +606,7 @@ func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -647,7 +647,7 @@ func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -686,7 +686,7 @@ func TestApplicationService_Apply(t *testing.T) {
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -773,7 +773,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) 
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -850,7 +850,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -937,7 +937,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -1024,7 +1024,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -1104,7 +1104,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
@@ -1215,7 +1215,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 	imagesMock := new(MockImagesInterface)
 	kindMock := new(MockKindInterface)
 
-	kindMock.On("ApplyKind", "foobar", []string{}).Return(nil)
+	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)

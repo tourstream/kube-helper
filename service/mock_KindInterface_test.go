@@ -7,13 +7,13 @@ type MockKindInterface struct {
 	mock.Mock
 }
 
-// ApplyKind provides a mock function with given fields: kubernetesNamespace, fileLines
-func (_m *MockKindInterface) ApplyKind(kubernetesNamespace string, fileLines []string) error {
-	ret := _m.Called(kubernetesNamespace, fileLines)
+// ApplyKind provides a mock function with given fields: kubernetesNamespace, fileLines, namespaceWithoutPrefix
+func (_m *MockKindInterface) ApplyKind(kubernetesNamespace string, fileLines []string, namespaceWithoutPrefix string) error {
+	ret := _m.Called(kubernetesNamespace, fileLines, namespaceWithoutPrefix)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, []string) error); ok {
-		r0 = rf(kubernetesNamespace, fileLines)
+	if rf, ok := ret.Get(0).(func(string, []string, string) error); ok {
+		r0 = rf(kubernetesNamespace, fileLines, namespaceWithoutPrefix)
 	} else {
 		r0 = ret.Error(0)
 	}
