@@ -70,7 +70,7 @@ type Config struct {
 	Cleanup                  Cleanup
 	DNS                      DNSConfig `yaml:"dns"`
 	Database                 Database
-	Namespace				 Namespace
+	Namespace                Namespace
 }
 
 var fileSystemWrapper = afero.NewOsFs()
