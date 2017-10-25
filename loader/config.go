@@ -55,6 +55,10 @@ type Cluster struct {
 	AlphaSupport bool `yaml:"alpha_support"`
 }
 
+type Namespace struct {
+	Prefix string
+}
+
 type Config struct {
 	KubernetesConfigFilepath string `yaml:"kubernetes_config_filepath"`
 	ProjectID                string `yaml:"project_id"`
@@ -66,6 +70,7 @@ type Config struct {
 	Cleanup                  Cleanup
 	DNS                      DNSConfig `yaml:"dns"`
 	Database                 Database
+	Namespace                Namespace
 }
 
 var fileSystemWrapper = afero.NewOsFs()

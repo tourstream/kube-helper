@@ -34,6 +34,7 @@ type ApplicationServiceInterface interface {
 
 type applicationService struct {
 	clientSet         kubernetes.Interface
+	prefixedNamespace string
 	namespace         string
 	config            loader.Config
 	dnsService        *dns.Service
@@ -44,6 +45,10 @@ type applicationService struct {
 func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute_v1.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
 	a := new(applicationService)
 	a.clientSet = client
+	a.prefixedNamespace = namespace
+	if config.Namespace.Prefix != "" {
+		a.prefixedNamespace = config.Namespace.Prefix + "-" + namespace
+	}
 	a.namespace = namespace
 	a.config = config
 	a.dnsService = dnsService
@@ -100,7 +105,7 @@ func (a *applicationService) Apply() error {
 		}
 	}
 
-	pods, err := a.clientSet.CoreV1().Pods(a.namespace).List(meta_v1.ListOptions{})
+	pods, err := a.clientSet.CoreV1().Pods(a.prefixedNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -132,7 +137,7 @@ func (a *applicationService) DeleteByNamespace() error {
 		return err
 	}
 
-	fmt.Fprintf(writer, "Namespace \"%s\" was deleted\n", a.namespace)
+	fmt.Fprintf(writer, "Namespace \"%s\" was deleted\n", a.prefixedNamespace)
 
 	err = a.deleteDNSEntries(ip, a.config.DNS)
 
@@ -144,7 +149,7 @@ func (a *applicationService) DeleteByNamespace() error {
 }
 
 func (a *applicationService) HasNamespace() bool {
-	_, err := a.clientSet.CoreV1().Namespaces().Get(a.namespace, meta_v1.GetOptions{})
+	_, err := a.clientSet.CoreV1().Namespaces().Get(a.prefixedNamespace, meta_v1.GetOptions{})
 
 	if err != nil {
 		return false
@@ -185,7 +190,7 @@ func (a *applicationService) setEndpointEnvVariables() error {
 }
 
 func (a *applicationService) deleteNamespace() error {
-	return a.clientSet.CoreV1().Namespaces().Delete(a.namespace, &meta_v1.DeleteOptions{})
+	return a.clientSet.CoreV1().Namespaces().Delete(a.prefixedNamespace, &meta_v1.DeleteOptions{})
 }
 
 func (a *applicationService) createDNSEntries(ip string, dnsConfig loader.DNSConfig) error {
@@ -235,13 +240,13 @@ func (a *applicationService) deleteDNSEntries(ip string, dnsConfig loader.DNSCon
 
 func (a *applicationService) deleteIngress(projectID string) error {
 
-	list, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
+	list, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
 	}
 
-	err = a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
+	err = a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -268,7 +273,7 @@ func (a *applicationService) deleteIngress(projectID string) error {
 func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error) {
 	var ip string
 
-	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).List(meta_v1.ListOptions{})
+	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return "", err
@@ -284,7 +289,7 @@ func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error
 
 			if ip == "" {
 				for retries := 0; retries < maxRetries; retries++ {
-					ingressWait, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.namespace).Get(ingressWait.Name, meta_v1.GetOptions{})
+					ingressWait, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).Get(ingressWait.Name, meta_v1.GetOptions{})
 
 					if err != nil {
 						return "", err
@@ -360,7 +365,7 @@ func (a *applicationService) waitForStaticIPToBeDeleted(projectID string, addres
 }
 
 func (a *applicationService) isValidNamespace() error {
-	if !namespaceNameRegexp.MatchString(a.namespace) {
+	if !namespaceNameRegexp.MatchString(a.prefixedNamespace) {
 		return errors.New(validation.RegexError(namespaceNameFmt, "my-name", "123-abc"))
 	}
 	return nil
@@ -370,7 +375,7 @@ func (a *applicationService) createNamespace() error {
 	_, err := a.clientSet.CoreV1().Namespaces().Create(
 		&v1.Namespace{
 			ObjectMeta: meta_v1.ObjectMeta{
-				Name: a.namespace,
+				Name: a.prefixedNamespace,
 			},
 		},
 	)
@@ -378,7 +383,7 @@ func (a *applicationService) createNamespace() error {
 		return err
 	}
 
-	fmt.Fprintf(writer, "Namespace \"%s\" was generated\n", a.namespace)
+	fmt.Fprintf(writer, "Namespace \"%s\" was generated\n", a.prefixedNamespace)
 
 	return nil
 }
@@ -394,12 +399,12 @@ func (a *applicationService) applyFromConfig() error {
 	kindService := serviceBuilder.GetKindService(a.clientSet, imageService, a.config)
 
 	err = replaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
-		return kindService.ApplyKind(a.namespace, splitLines)
+		return kindService.ApplyKind(a.prefixedNamespace, splitLines)
 	})
 
 	if err != nil {
 		return err
 	}
 
-	return kindService.CleanupKind(a.namespace)
+	return kindService.CleanupKind(a.prefixedNamespace)
 }

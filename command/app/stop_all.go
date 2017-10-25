@@ -5,6 +5,7 @@ import (
 
 	"github.com/urfave/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 func CmdShutdownAll(c *cli.Context) error {
@@ -28,11 +29,11 @@ func CmdShutdownAll(c *cli.Context) error {
 	}
 
 	for _, namespace := range list.Items {
-		if namespace.Name == "kube-system" || namespace.Name == "default" {
+		if strings.HasPrefix(namespace.Name, "kube") || namespace.Name == "default" || !strings.HasPrefix(namespace.Name, configContainer.Namespace.Prefix) {
 			continue
 		}
 
-		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
+		appService, err := serviceBuilder.GetApplicationService(clientSet, strings.TrimPrefix(namespace.Name, configContainer.Namespace.Prefix + "-"), configContainer)
 
 		if err != nil {
 			return cli.NewExitError(err.Error(), 1)
