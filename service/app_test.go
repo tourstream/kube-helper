@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"github.com/stretchr/testify/assert"
 	testing_k8s "k8s.io/client-go/testing"
+	"k8s.io/apimachinery/pkg/runtime"
 	"fmt"
 	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,6 +17,7 @@ import (
 	"errors"
 	"github.com/spf13/afero"
 	"os"
+	"reflect"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -30,6 +32,31 @@ func TestApplicationService_HasNamespace(t *testing.T) {
 	for _, entry := range dataProvider {
 
 		appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+
+		fakeClientSet.PrependReactor("get", "namespaces", entry.reaction)
+
+		assert.Equal(t, entry.expected, appService.HasNamespace())
+	}
+}
+
+func TestApplicationService_HasNamespaceWithPrefix(t *testing.T) {
+
+	validate := func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
+
+		assert.Equal(t, reflect.Indirect(reflect.ValueOf(action)).FieldByName("Name").String(), "dummy-foobar")
+		return true, nil, errors.New("explode")
+	}
+
+	var dataProvider = []struct {
+		reaction testing_k8s.ReactionFunc
+		expected bool
+	}{
+		{nilReturnFunc, true},
+		{validate, false},
+	}
+	for _, entry := range dataProvider {
+
+		appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{Namespace: loader.Namespace{Prefix: "dummy"}})
 
 		fakeClientSet.PrependReactor("get", "namespaces", entry.reaction)
 
@@ -716,7 +743,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) 
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -770,7 +797,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -848,7 +875,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -891,7 +918,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 	}
 
 	singleObject := &v1beta1.Ingress{
-	ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -935,7 +962,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -1025,7 +1052,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -1103,7 +1130,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
-			Type: "gcp",
+			Type:      "gcp",
 			ProjectID: "testing",
 		},
 		DNS: loader.DNSConfig{
@@ -1155,8 +1182,6 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(404)
-
-
 
 	appService, fakeClientSet := getApplicationService(t, "foobar", config)
 

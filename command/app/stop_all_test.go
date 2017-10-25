@@ -167,3 +167,54 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	assert.Equal(t, "explode", output)
 	assert.Empty(t, errOutput)
 }
+
+func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
+
+	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		ProjectID: "test-project",
+		Zone:      "berlin",
+		ClusterID: "testing",
+		Namespace: loader.Namespace{
+			Prefix: "dummy",
+		},
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	namespaceList := &v1.NamespaceList{
+		Items: []v1.Namespace{testNamespace("default"), testNamespace("kube-system"), testNamespace("dummy-foobar")},
+	}
+
+	fakeClientSet := fake.NewSimpleClientset(namespaceList)
+	appService := new(_mocks.ApplicationServiceInterface)
+
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+
+	appService.On("DeleteByNamespace").Return(errors.New("explode"))
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdShutdownAll, []string{"shutdown-all", "-c", "never.yml"})
+	})
+
+	assert.Equal(t, "explode", output)
+	assert.Empty(t, errOutput)
+}
