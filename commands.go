@@ -9,6 +9,7 @@ import (
 	"kube-helper/command/registry"
 
 	"github.com/urfave/cli"
+	"kube-helper/command/services"
 )
 
 var GlobalFlags = []cli.Flag{}
@@ -109,6 +110,25 @@ var Commands = []cli.Command{
 				Name:   "cleanup",
 				Usage:  "remove all staging images which do not have a latest tag and where the branch is not there anymore",
 				Action: registry.CmdCleanup,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+				},
+			},
+		},
+	},
+	{
+		Name:    "services",
+		Aliases: []string{"s"},
+		Usage:   "options for the services in the cluster",
+		Subcommands: []cli.Command{
+			{
+				Name:   "get-ip",
+				Usage:  "get the cluster ip of a service in a namespace",
+				Action: services.CmdGetIp,
+				ArgsUsage: "[namespace, name]",
 				Flags: []cli.Flag{
 					cli.StringFlag{
 						Name:  "config, c",
