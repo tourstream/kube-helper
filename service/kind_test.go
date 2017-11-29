@@ -1,20 +1,22 @@
 package service
 
 import (
-	"testing"
+	"bytes"
+	"errors"
+	"fmt"
 	"kube-helper/loader"
+	"kube-helper/model"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	apps_v1beta2 "k8s.io/api/apps/v1beta2"
+	batch_v1beta1 "k8s.io/api/batch/v1beta1"
+	core_v1 "k8s.io/api/core/v1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	testing_k8s "k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/runtime"
-	"errors"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/client-go/pkg/api/v1"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"bytes"
-	"fmt"
-	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
-	"kube-helper/model"
 )
 
 var listErrorTests = []struct {
@@ -50,13 +52,13 @@ var deleteErrorTests = []struct {
 	resource string
 	list     runtime.Object
 }{
-	{"secrets", &v1.SecretList{Items: []v1.Secret{{ObjectMeta: meta.ObjectMeta{Name: "default-token-fff"}}, {ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},}},
-	{"configmaps", &v1.ConfigMapList{Items: []v1.ConfigMap{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
-	{"services", &v1.ServiceList{Items: []v1.Service{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
-	{"persistentvolumeclaims", &v1.PersistentVolumeClaimList{Items: []v1.PersistentVolumeClaim{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
-	{"deployments", &v1beta1.DeploymentList{Items: []v1beta1.Deployment{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
-	{"ingresses", &v1beta1.IngressList{Items: []v1beta1.Ingress{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
-	{"cronjobs", &v2alpha1.CronJobList{Items: []v2alpha1.CronJob{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"secrets", &core_v1.SecretList{Items: []core_v1.Secret{{ObjectMeta: meta.ObjectMeta{Name: "default-token-fff"}}, {ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"configmaps", &core_v1.ConfigMapList{Items: []core_v1.ConfigMap{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"services", &core_v1.ServiceList{Items: []core_v1.Service{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"persistentvolumeclaims", &core_v1.PersistentVolumeClaimList{Items: []core_v1.PersistentVolumeClaim{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"deployments", &apps_v1beta2.DeploymentList{Items: []apps_v1beta2.Deployment{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"ingresses", &extensions_v1beta1.IngressList{Items: []extensions_v1beta1.Ingress{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
+	{"cronjobs", &batch_v1beta1.CronJobList{Items: []batch_v1beta1.CronJob{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}},
 }
 
 func TestKindService_CleanupKindWithErrorOnDeleteKind(t *testing.T) {
@@ -81,13 +83,13 @@ var deleteTests = []struct {
 	list     runtime.Object
 	out      string
 }{
-	{"secrets", &v1.SecretList{Items: []v1.Secret{{ObjectMeta: meta.ObjectMeta{Name: "default-token-fff"}}, {ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},}, "Secret \"dummy\" was removed.\n"},
-	{"configmaps", &v1.ConfigMapList{Items: []v1.ConfigMap{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "ConfigMap \"dummy\" was removed.\n"},
-	{"services", &v1.ServiceList{Items: []v1.Service{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Service \"dummy\" was removed.\n"},
-	{"persistentvolumeclaims", &v1.PersistentVolumeClaimList{Items: []v1.PersistentVolumeClaim{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "PersistentVolumeClaim \"dummy\" was removed.\n"},
-	{"deployments", &v1beta1.DeploymentList{Items: []v1beta1.Deployment{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Deployment \"dummy\" was removed.\n"},
-	{"ingresses", &v1beta1.IngressList{Items: []v1beta1.Ingress{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Ingress \"dummy\" was removed.\n"},
-	{"cronjobs", &v2alpha1.CronJobList{Items: []v2alpha1.CronJob{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "CronJob \"dummy\" was removed.\n"},
+	{"secrets", &core_v1.SecretList{Items: []core_v1.Secret{{ObjectMeta: meta.ObjectMeta{Name: "default-token-fff"}}, {ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Secret \"dummy\" was removed.\n"},
+	{"configmaps", &core_v1.ConfigMapList{Items: []core_v1.ConfigMap{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "ConfigMap \"dummy\" was removed.\n"},
+	{"services", &core_v1.ServiceList{Items: []core_v1.Service{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Service \"dummy\" was removed.\n"},
+	{"persistentvolumeclaims", &core_v1.PersistentVolumeClaimList{Items: []core_v1.PersistentVolumeClaim{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "PersistentVolumeClaim \"dummy\" was removed.\n"},
+	{"deployments", &apps_v1beta2.DeploymentList{Items: []apps_v1beta2.Deployment{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Deployment \"dummy\" was removed.\n"},
+	{"ingresses", &extensions_v1beta1.IngressList{Items: []extensions_v1beta1.Ingress{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "Ingress \"dummy\" was removed.\n"},
+	{"cronjobs", &batch_v1beta1.CronJobList{Items: []batch_v1beta1.CronJob{{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}}}, "CronJob \"dummy\" was removed.\n"},
 }
 
 func TestKindService_CleanupKind(t *testing.T) {
@@ -145,7 +147,7 @@ apiVersion: v1
 metadata:
   name: dummy
   annotations:
-    tourstream.eu/ingress: true`
+    "tourstream.eu/ingress": "true"`
 
 var persistentVolumeClaim = `kind: PersistentVolumeClaim
 apiVersion: v1
@@ -158,12 +160,12 @@ metadata:
   name: dummy`
 
 var deployment = `kind: Deployment
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1beta2
 metadata:
   name: dummy`
 
 var deploymentWithAnnotation = `kind: Deployment
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1beta2
 metadata:
   name: dummy
   annotations:
@@ -182,12 +184,12 @@ metadata:
   name: dummy`
 
 var cronjob = `kind: CronJob
-apiVersion: batch/v2alpha1
+apiVersion: batch/v1beta1
 metadata:
   name: dummy`
 
 var cronjobWithAnnotation = `kind: CronJob
-apiVersion: batch/v2alpha1
+apiVersion: batch/v1beta1
 metadata:
   name: dummy
   annotations:
@@ -225,15 +227,15 @@ var upsertTests = []struct {
 	out      string
 	object   runtime.Object
 }{
-	{"secrets", secret, "Secret \"dummy\" was updated.\n", nil,},
-	{"configmaps", configMap, "ConfigMap \"dummy\" was updated.\n", nil,},
-	{"services", service, "Service \"dummy\" was updated.\n", &v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
-	{"services", serviceWithAnnotation, "Service \"dummy\" was updated.\n", &v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
-	{"persistentvolumeclaims", persistentVolumeClaim, "PersistentVolumeClaim \"dummy\" was updated.\n", &v1.PersistentVolumeClaim{ObjectMeta: meta.ObjectMeta{Name: "dummy"}},},
-	{"persistentvolumes", persistentVolume, "PersistentVolume \"dummy\" was updated.\n", nil,},
-	{"deployments", deployment, "Deployment \"dummy\" was updated.\n", nil,},
-	{"ingresses", ingress, "Ingress \"dummy\" was updated.\n", nil,},
-	{"cronjobs", cronjob, "CronJob \"dummy\" was updated.\n", nil,},
+	{"secrets", secret, "Secret \"dummy\" was updated.\n", nil},
+	{"configmaps", configMap, "ConfigMap \"dummy\" was updated.\n", nil},
+	{"services", service, "Service \"dummy\" was updated.\n", &core_v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},
+	{"services", serviceWithAnnotation, "Service \"dummy\" was updated.\n", &core_v1.Service{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},
+	{"persistentvolumeclaims", persistentVolumeClaim, "PersistentVolumeClaim \"dummy\" was updated.\n", &core_v1.PersistentVolumeClaim{ObjectMeta: meta.ObjectMeta{Name: "dummy"}}},
+	{"persistentvolumes", persistentVolume, "PersistentVolume \"dummy\" was updated.\n", nil},
+	{"deployments", deployment, "Deployment \"dummy\" was updated.\n", nil},
+	{"ingresses", ingress, "Ingress \"dummy\" was updated.\n", nil},
+	{"cronjobs", cronjob, "CronJob \"dummy\" was updated.\n", nil},
 }
 
 var setImageTests = []struct {
@@ -242,8 +244,8 @@ var setImageTests = []struct {
 	out      string
 	object   runtime.Object
 }{
-	{"cronjobs", cronjobWithAnnotation, "CronJob \"dummy\" was updated.\n", nil,},
-	{"deployments", deploymentWithAnnotation, "Deployment \"dummy\" was updated.\n", nil,},
+	{"cronjobs", cronjobWithAnnotation, "CronJob \"dummy\" was updated.\n", nil},
+	{"deployments", deploymentWithAnnotation, "Deployment \"dummy\" was updated.\n", nil},
 }
 
 func TestKindService_ApplyKindShouldFailWithErrorDuringDecode(t *testing.T) {
@@ -393,14 +395,13 @@ func TestKindService_ApplyKindUpdateWithDisabledAlphaSupport(t *testing.T) {
 func TestKindService_SetImageForContainer(t *testing.T) {
 	var dataProvider = []struct {
 		namespace string
-		tags     []string
-		imagePath      string
+		tags      []string
+		imagePath string
 	}{
-		{"foobar", []string{"staging-foobar-latest", "staging-foobar-3"}, "gcr.io/path/app:staging-foobar-3", },
-		{"production", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3", },
-		{"staging", []string{"staging-latest", "staging-3"}, "gcr.io/path/app:staging-3", },
+		{"foobar", []string{"staging-foobar-latest", "staging-foobar-3"}, "gcr.io/path/app:staging-foobar-3"},
+		{"production", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3"},
+		{"staging", []string{"staging-latest", "staging-3"}, "gcr.io/path/app:staging-3"},
 	}
-
 
 	for _, entry := range dataProvider {
 		kindService, imageServiceMock, _ := getKindService(t, loader.Config{})
@@ -413,7 +414,7 @@ func TestKindService_SetImageForContainer(t *testing.T) {
 
 		imageServiceMock.On("List", loader.Cleanup{ImagePath: "gcr.io/path/app"}).Return(tags, nil)
 
-		containers := []v1.Container{
+		containers := []core_v1.Container{
 			{Image: "gcr.io/path/app"},
 		}
 
@@ -421,7 +422,6 @@ func TestKindService_SetImageForContainer(t *testing.T) {
 
 		assert.Equal(t, entry.imagePath, containers[0].Image)
 	}
-
 
 }
 
@@ -450,7 +450,7 @@ func getKindService(t *testing.T, config loader.Config) (*kindService, *MockImag
 	return newKind(fakeClientSet, imageServiceMock, config), imageServiceMock, fakeClientSet
 }
 
-func captureOutput(f func()) (string) {
+func captureOutput(f func()) string {
 	oldWriter := writer
 	var buf bytes.Buffer
 	defer func() {

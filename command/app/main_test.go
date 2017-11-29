@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
-	"k8s.io/client-go/pkg/api/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"k8s.io/api/core/v1"
 )
 
 func TestGetNamespace(t *testing.T) {

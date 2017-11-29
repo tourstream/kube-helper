@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/pkg/api/v1"
 	testing2 "k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/api/core/v1"
 )
 
 func TestCmdCleanupWithWrongConf(t *testing.T) {
