@@ -67,7 +67,7 @@ var Commands = []cli.Command{
 						Usage: "Load config from `FILE`",
 					},
 					cli.BoolFlag{
-						Name: "production, p",
+						Name:  "production, p",
 						Usage: "update production",
 					},
 				},
@@ -83,7 +83,7 @@ var Commands = []cli.Command{
 						Usage: "Load config from `FILE`",
 					},
 					cli.BoolFlag{
-						Name: "production, p",
+						Name:  "production, p",
 						Usage: "update production",
 					},
 				},
