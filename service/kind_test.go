@@ -34,11 +34,7 @@ var listErrorTests = []struct {
 func TestKindService_CleanupKindWithErrorOnGetList(t *testing.T) {
 	for _, entry := range listErrorTests {
 
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
@@ -63,11 +59,7 @@ var deleteErrorTests = []struct {
 
 func TestKindService_CleanupKindWithErrorOnDeleteKind(t *testing.T) {
 	for _, entry := range deleteErrorTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
@@ -94,11 +86,7 @@ var deleteTests = []struct {
 
 func TestKindService_CleanupKind(t *testing.T) {
 	for _, entry := range deleteTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 
@@ -114,16 +102,6 @@ func TestKindService_CleanupKind(t *testing.T) {
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
 		assert.Len(t, fakeClientSet.Actions(), 8)
 	}
-}
-
-func TestKindService_CleanupKindCronJobWithoutEnabledSupport(t *testing.T) {
-	config := loader.Config{}
-
-	kindService, _, fakeClientSet := getKindService(t, config)
-
-	assert.NoError(t, kindService.CleanupKind("foobar"))
-	assert.Len(t, fakeClientSet.Actions(), 6)
-
 }
 
 var secret = `kind: Secret
@@ -272,11 +250,7 @@ metadata:
 
 func TestKindService_ApplyKindInsertWithError(t *testing.T) {
 	for _, entry := range insertTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
@@ -288,11 +262,7 @@ func TestKindService_ApplyKindInsertWithError(t *testing.T) {
 
 func TestKindService_ApplyKindInsert(t *testing.T) {
 	for _, entry := range insertTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, errorReturnFunc)
@@ -308,11 +278,7 @@ func TestKindService_ApplyKindInsert(t *testing.T) {
 
 func TestKindService_ApplyKindUpdateWithError(t *testing.T) {
 	for _, entry := range upsertTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
@@ -324,11 +290,7 @@ func TestKindService_ApplyKindUpdateWithError(t *testing.T) {
 
 func TestKindService_ApplyKindUpdate(t *testing.T) {
 	for _, entry := range upsertTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, _, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
@@ -344,11 +306,7 @@ func TestKindService_ApplyKindUpdate(t *testing.T) {
 
 func TestKindService_ApplyKindUpdateWithContainers(t *testing.T) {
 	for _, entry := range setImageTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, imageServiceMock, fakeClientSet := getKindService(t, config)
 		fakeClientSet.PrependReactor("get", entry.resource, getObjectReturnFunc(entry.object))
@@ -366,11 +324,7 @@ func TestKindService_ApplyKindUpdateWithContainers(t *testing.T) {
 
 func TestKindService_ApplyKindUpdateWithContainersError(t *testing.T) {
 	for _, entry := range setImageTests {
-		config := loader.Config{
-			Cluster: loader.Cluster{
-				AlphaSupport: true,
-			},
-		}
+		config := loader.Config{}
 
 		kindService, imageServiceMock, _ := getKindService(t, config)
 
@@ -379,17 +333,6 @@ func TestKindService_ApplyKindUpdateWithContainersError(t *testing.T) {
 		assert.Error(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 
 	}
-}
-
-func TestKindService_ApplyKindUpdateWithDisabledAlphaSupport(t *testing.T) {
-
-	kindService, _, _ := getKindService(t, loader.Config{})
-
-	output := captureOutput(func() {
-		assert.NoError(t, kindService.ApplyKind("foobar", []string{cronjob}, "foobar"))
-	})
-
-	assert.Equal(t, "CronJob \"dummy\" was not generated or updated, because alpha support is not enabled.\n", output)
 }
 
 func TestKindService_SetImageForContainer(t *testing.T) {

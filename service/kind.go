@@ -222,10 +222,6 @@ func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
 
 func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 
-	if !k.config.Cluster.AlphaSupport {
-		return nil
-	}
-
 	list, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
@@ -239,7 +235,7 @@ func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 	}
 
 	for _, name := range difference(names, k.usedKind.cronJob) {
-		err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		err = k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -335,11 +331,6 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *core_v1.
 }
 
 func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *batch_v1beta1.CronJob, namespaceWithoutPrefix string) error {
-
-	if !k.config.Cluster.AlphaSupport {
-		fmt.Fprintf(writer, "CronJob \"%s\" was not generated or updated, because alpha support is not enabled.\n", cronJob.Name)
-		return nil
-	}
 
 	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
