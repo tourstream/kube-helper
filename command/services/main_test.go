@@ -5,13 +5,12 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	"k8s.io/client-go/pkg/api/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 )
 
 func helperTestCmdHasWrongConfigReturned(t *testing.T, Action interface{}, arguments []string) {
@@ -98,12 +97,4 @@ func captureOutput(f func()) (string, string) {
 	cli.ErrWriter = &errBuf
 	f()
 	return buf.String(), errBuf.String()
-}
-
-func testNamespace(ns string) v1.Namespace {
-	return v1.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: ns,
-		},
-	}
 }

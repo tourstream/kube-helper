@@ -4,15 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	"k8s.io/client-go/kubernetes/fake"
-	testing_k8s "k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/runtime"
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
-	"k8s.io/client-go/pkg/api/v1"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	testing_k8s "k8s.io/client-go/testing"
 )
 
 func TestCmdGetIpWithWrongConf(t *testing.T) {
