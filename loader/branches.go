@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"golang.org/x/oauth2/clientcredentials"
 	"strings"
+
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 type branch struct {

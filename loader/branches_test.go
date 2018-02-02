@@ -13,6 +13,7 @@ func TestGetBranches(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Basic Q2xpZW50SWQ6Q2xpZW50K1NlY3JldA==", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, "{\"access_token\" : \"tolen\"}")
 	}))
 	defer ts.Close()
@@ -39,6 +40,7 @@ func TestGetBranchesWithHttpError(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Basic Q2xpZW50SWQ6Q2xpZW50K1NlY3JldA==", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, "{\"access_token\" : \"tolen\"}")
 	}))
 	defer ts.Close()
@@ -65,6 +67,7 @@ func TestGetBranchesWithHttpBodyError(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Basic Q2xpZW50SWQ6Q2xpZW50K1NlY3JldA==", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintln(w, "{\"access_token\" : \"tolen\"}")
 	}))
 	defer ts.Close()

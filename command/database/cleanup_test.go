@@ -4,16 +4,17 @@ import (
 	"errors"
 	"testing"
 
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
 
 	"bytes"
+
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"gopkg.in/h2non/gock.v1"
-	"time"
 	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
@@ -167,10 +168,7 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/sql/v1beta4/projects/test-project/instances/testing/databases").
@@ -193,7 +191,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 			ProjectID: "test-project",
 		},
 		Database: loader.Database{
-			Instance: "testing",
+			Instance:             "testing",
 			PrefixBranchDatabase: "foobar_",
 		},
 	}
@@ -231,10 +229,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	listResponse := `
 	{
@@ -267,10 +262,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 		Reply(200).
 		JSON(listResponse)
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Delete("/sql/v1beta4/projects/test-project/instances/testing/databases/foobar_database").
@@ -335,10 +327,7 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	defer gock.Off() // Flush pending mocks after test execution
 
 	for i := 0; i < 3; i++ {
-		gock.New("https://accounts.google.com").
-			Post("/o/oauth2/token").
-			Reply(200).
-			JSON(map[string]string{"foo": "bar"})
+		createAuthCall()
 	}
 
 	listResponse := `
@@ -421,8 +410,8 @@ func TestCmdCleanup(t *testing.T) {
 			ProjectID: "test-project",
 		},
 		Database: loader.Database{
-			Instance: "testing",
-			BaseName: "base",
+			Instance:             "testing",
+			BaseName:             "base",
 			PrefixBranchDatabase: "base_",
 		},
 	}
@@ -461,10 +450,7 @@ func TestCmdCleanup(t *testing.T) {
 	defer gock.Off() // Flush pending mocks after test execution
 
 	for i := 0; i < 2; i++ {
-		gock.New("https://accounts.google.com").
-			Post("/o/oauth2/token").
-			Reply(200).
-			JSON(map[string]string{"foo": "bar"})
+		createAuthCall()
 	}
 
 	listResponse := `
