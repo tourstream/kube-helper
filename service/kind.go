@@ -12,12 +12,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/apis/batch/v2alpha1"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	"kube-helper/model"
 	"os"
 	"io"
+	batch_v1beta1 "k8s.io/api/batch/v1beta1"
+	core_v1 "k8s.io/api/core/v1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
+	apps_v1beta2 "k8s.io/api/apps/v1beta2"
 )
 
 var writer io.Writer = os.Stdout
@@ -170,7 +171,7 @@ func (k *kindService) cleanupServices(kubernetesNamespace string) error {
 }
 
 func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
-	list, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
+	list, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -183,7 +184,7 @@ func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
 	}
 
 	for _, name := range difference(names, k.usedKind.deployment) {
-		err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -221,11 +222,7 @@ func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
 
 func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 
-	if !k.config.Cluster.AlphaSupport {
-		return nil
-	}
-
-	list, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).List(meta_v1.ListOptions{})
+	list, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -238,7 +235,7 @@ func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 	}
 
 	for _, name := range difference(names, k.usedKind.cronJob) {
-		err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		err = k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -283,27 +280,27 @@ func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, 
 	}
 	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
 	case "Secret":
-		return k.upsertSecrets(kubernetesNamespace, fileContent.(*v1.Secret))
+		return k.upsertSecrets(kubernetesNamespace, fileContent.(*core_v1.Secret))
 	case "ConfigMap":
-		return k.upsertConfigMap(kubernetesNamespace, fileContent.(*v1.ConfigMap))
+		return k.upsertConfigMap(kubernetesNamespace, fileContent.(*core_v1.ConfigMap))
 	case "Service":
-		return k.upsertService(kubernetesNamespace, fileContent.(*v1.Service))
+		return k.upsertService(kubernetesNamespace, fileContent.(*core_v1.Service))
 	case "Deployment":
-		return k.upsertDeployment(kubernetesNamespace, fileContent.(*v1beta1.Deployment), namespaceWithoutPrefix)
+		return k.upsertDeployment(kubernetesNamespace, fileContent.(*apps_v1beta2.Deployment), namespaceWithoutPrefix)
 	case "Ingress":
-		return k.upsertIngress(kubernetesNamespace, fileContent.(*v1beta1.Ingress))
+		return k.upsertIngress(kubernetesNamespace, fileContent.(*extensions_v1beta1.Ingress))
 	case "CronJob":
-		return k.upsertCronJob(kubernetesNamespace, fileContent.(*v2alpha1.CronJob), namespaceWithoutPrefix)
+		return k.upsertCronJob(kubernetesNamespace, fileContent.(*batch_v1beta1.CronJob), namespaceWithoutPrefix)
 	case "PersistentVolume":
-		return k.upsertPersistentVolume(fileContent.(*v1.PersistentVolume))
+		return k.upsertPersistentVolume(fileContent.(*core_v1.PersistentVolume))
 	case "PersistentVolumeClaim":
-		return k.upsertPersistentVolumeClaim(kubernetesNamespace, fileContent.(*v1.PersistentVolumeClaim))
+		return k.upsertPersistentVolumeClaim(kubernetesNamespace, fileContent.(*core_v1.PersistentVolumeClaim))
 	default:
 		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
 	}
 }
 
-func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secret) error {
+func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *core_v1.Secret) error {
 	_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Get(secret.Name, meta_v1.GetOptions{})
 
 	if err != nil {
@@ -333,12 +330,7 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *v1.Secre
 	return nil
 }
 
-func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha1.CronJob, namespaceWithoutPrefix string) error {
-
-	if !k.config.Cluster.AlphaSupport {
-		fmt.Fprintf(writer, "CronJob \"%s\" was not generated or updated, because alpha support is not enabled.\n", cronJob.Name)
-		return nil
-	}
+func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *batch_v1beta1.CronJob, namespaceWithoutPrefix string) error {
 
 	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
@@ -348,10 +340,10 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 		}
 	}
 
-	_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Get(cronJob.Name, meta_v1.GetOptions{})
+	_, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Get(cronJob.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		_, err := k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Create(cronJob)
+		_, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Create(cronJob)
 
 		if err != nil {
 			return err
@@ -363,7 +355,7 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 
 		return nil
 	}
-	_, err = k.clientSet.BatchV2alpha1().CronJobs(kubernetesNamespace).Update(cronJob)
+	_, err = k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Update(cronJob)
 
 	if err != nil {
 		return err
@@ -376,7 +368,7 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *v2alpha
 	return nil
 }
 
-func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v1beta1.Deployment, namespaceWithoutPrefix string) error {
+func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *apps_v1beta2.Deployment, namespaceWithoutPrefix string) error {
 
 	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
 		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
@@ -386,10 +378,10 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v
 		}
 	}
 
-	_, err := k.clientSet.AppsV1beta1().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
+	_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		_, err := k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Create(deployment)
+		_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Create(deployment)
 
 		if err != nil {
 			return err
@@ -402,7 +394,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v
 		return nil
 	}
 
-	_, err = k.clientSet.ExtensionsV1beta1().Deployments(kubernetesNamespace).Update(deployment)
+	_, err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Update(deployment)
 
 	if err != nil {
 		return err
@@ -415,7 +407,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *v
 	return nil
 }
 
-func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Service) error {
+func (k *kindService) upsertService(kubernetesNamespace string, service *core_v1.Service) error {
 
 	existingService, err := k.clientSet.CoreV1().Services(kubernetesNamespace).Get(service.Name, meta_v1.GetOptions{})
 
@@ -455,7 +447,7 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *v1.Serv
 	return nil
 }
 
-func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *v1.ConfigMap) error {
+func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *core_v1.ConfigMap) error {
 
 	_, err := k.clientSet.CoreV1().ConfigMaps(kubernetesNamespace).Get(configMap.Name, meta_v1.GetOptions{})
 
@@ -487,7 +479,7 @@ func (k *kindService) upsertConfigMap(kubernetesNamespace string, configMap *v1.
 	return nil
 }
 
-func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolume) error {
+func (k *kindService) upsertPersistentVolume(persistentVolume *core_v1.PersistentVolume) error {
 
 	_, err := k.clientSet.CoreV1().PersistentVolumes().Get(persistentVolume.Name, meta_v1.GetOptions{})
 
@@ -518,7 +510,7 @@ func (k *kindService) upsertPersistentVolume(persistentVolume *v1.PersistentVolu
 	return nil
 }
 
-func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *v1.PersistentVolumeClaim) error {
+func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, persistentVolumeClaim *core_v1.PersistentVolumeClaim) error {
 
 	existingClaim, err := k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Get(persistentVolumeClaim.Name, meta_v1.GetOptions{})
 
@@ -553,7 +545,7 @@ func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, pe
 	return nil
 }
 
-func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1.Ingress) error {
+func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *extensions_v1beta1.Ingress) error {
 
 	_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Get(ingress.Name, meta_v1.GetOptions{})
 
@@ -584,7 +576,7 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *v1beta1
 	return nil
 }
 
-func (k *kindService) setImageForContainer(strategy string, containers []v1.Container, namespaceWithoutPrefix string) error {
+func (k *kindService) setImageForContainer(strategy string, containers []core_v1.Container, namespaceWithoutPrefix string) error {
 
 	for idx, container := range containers {
 

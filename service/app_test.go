@@ -8,9 +8,7 @@ import (
 	testing_k8s "k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/runtime"
 	"fmt"
-	"k8s.io/client-go/pkg/apis/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/pkg/api/v1"
 	util_clock "k8s.io/apimachinery/pkg/util/clock"
 	"gopkg.in/h2non/gock.v1"
 	"time"
@@ -18,6 +16,8 @@ import (
 	"github.com/spf13/afero"
 	"os"
 	"reflect"
+	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/core/v1"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
