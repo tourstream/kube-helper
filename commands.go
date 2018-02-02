@@ -70,6 +70,10 @@ var Commands = []cli.Command{
 						Name: "production, p",
 						Usage: "update production",
 					},
+					cli.StringFlag{
+						Name:  "namespace, n",
+						Usage: "namespace for production (useful for green blue deployment)",
+					},
 				},
 			},
 			{
@@ -85,6 +89,10 @@ var Commands = []cli.Command{
 					cli.BoolFlag{
 						Name: "production, p",
 						Usage: "update production",
+					},
+					cli.StringFlag{
+						Name:  "namespace, n",
+						Usage: "namespace for production (useful for green blue deployment)",
 					},
 				},
 			},

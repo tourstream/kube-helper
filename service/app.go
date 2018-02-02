@@ -159,7 +159,7 @@ func (a *applicationService) HasNamespace() bool {
 }
 
 func (a *applicationService) GetDomain(dnsConfig loader.DNSConfig) string {
-	if a.namespace == loader.ProductionEnvironment {
+	if a.config.Internal.IsProduction == true {
 		return dnsConfig.BaseDomain
 	}
 

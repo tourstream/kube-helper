@@ -4,12 +4,13 @@ import (
 	"errors"
 	"testing"
 
+	"kube-helper/_mocks"
+	"kube-helper/command"
+	"kube-helper/loader"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/client-go/kubernetes/fake"
-	"kube-helper/command"
-	"kube-helper/loader"
-	"kube-helper/_mocks"
 )
 
 func TestCmdApplyWithWrongConf(t *testing.T) {
@@ -135,7 +136,6 @@ func TestCmdApplyWithErrorForHasTag(t *testing.T) {
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
-
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-latest").Return(false, errors.New("explode"))
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
@@ -186,6 +186,8 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "latest").Return(false, nil)
+
+	config.Internal.IsProduction = true
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "production", config).Return(fakeApplicationService, nil)
@@ -306,6 +308,61 @@ func TestCmdApply(t *testing.T) {
 
 	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdApply, []string{"apply", "-c", "never.yml", "foobar"})
+	})
+
+	assert.Empty(t, errOutput)
+	assert.Empty(t, output)
+}
+
+func TestCmdApplyProdNamespace(t *testing.T) {
+
+	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		ProjectID: "test-project",
+		Zone:      "berlin",
+		ClusterID: "testing",
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(_mocks.BuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+
+	fakeClientSet := new(fake.Clientset)
+	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
+
+	imagesLoaderMock := new(_mocks.ImagesInterface)
+
+	imagesLoaderMock.On("HasTag", config.Cleanup, "latest").Return(true, nil)
+
+	config.Internal.IsProduction = true
+
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "green", config).Return(fakeApplicationService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
+
+	fakeApplicationService.On("Apply").Return(nil)
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 0, exitCode)
+	}
+
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdApply, []string{"apply", "-c", "never.yml", "-p", "-n", "green"})
 	})
 
 	assert.Empty(t, errOutput)

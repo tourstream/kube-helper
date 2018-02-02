@@ -1,22 +1,20 @@
 package service
 
 import (
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"gopkg.in/h2non/gock.v1"
 	"bytes"
 	"errors"
+	"testing"
+
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestBucketService_DeleteFile(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Delete("/storage/v1/b/foobar/o/foobar_file").
@@ -32,10 +30,7 @@ func TestBucketService_RemoveBucketACL(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Delete("/storage/v1/b/foobar/acl/user-service_account_test").
@@ -68,10 +63,7 @@ func TestBucketService_SetBucketACL(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -107,10 +99,7 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -119,20 +108,10 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 		Reply(200).
 		JSON(response)
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
-
 	gock.New("https://www.googleapis.com").
 		Get("/storage/v1/b/foobar/o/dummy.foobar").
 		Reply(200).
 		JSON(`{"mediaLink": "https://never.work.local/download"}`)
-
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
 
 	gock.New("https://never.work.local").
 		Get("/download").
@@ -152,10 +131,7 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 func TestBucketService_DownLoadFileWithErrorForSetAcl(t *testing.T) {
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -190,10 +166,7 @@ func TestBucketService_DownLoadFileWithErrorToGetObjectInformation(t *testing.T)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -202,11 +175,6 @@ func TestBucketService_DownLoadFileWithErrorToGetObjectInformation(t *testing.T)
 		Reply(200).
 		JSON(response)
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
-
 	gock.New("https://www.googleapis.com").
 		Get("/storage/v1/b/foobar/o/dummy.foobar").
 		ReplyError(errors.New("ObjectInfoError"))
@@ -214,6 +182,7 @@ func TestBucketService_DownLoadFileWithErrorToGetObjectInformation(t *testing.T)
 	_, err := getService(t).DownLoadFile("dummy.foobar", "service_account_test")
 
 	assert.EqualError(t, err, "Get https://www.googleapis.com/storage/v1/b/foobar/o/dummy.foobar?alt=json: ObjectInfoError")
+
 	assert.True(t, gock.IsDone())
 }
 
@@ -238,10 +207,7 @@ func TestBucketService_DownLoadFileWithDownloadError(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -250,20 +216,10 @@ func TestBucketService_DownLoadFileWithDownloadError(t *testing.T) {
 		Reply(200).
 		JSON(response)
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
-
 	gock.New("https://www.googleapis.com").
 		Get("/storage/v1/b/foobar/o/dummy.foobar").
 		Reply(200).
 		JSON(`{"mediaLink": "https://never.work.local/download"}`)
-
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
 
 	gock.New("https://never.work.local").
 		Get("/download").
@@ -287,10 +243,7 @@ func TestBucketService_UploadFile(t *testing.T) {
 	defer func() { fileSystem = oldFileSystem }()
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.BodyTypes = append(gock.BodyTypes, "multipart/related")
 

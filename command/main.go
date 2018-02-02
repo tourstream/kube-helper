@@ -5,6 +5,7 @@ package command
 import (
 	"flag"
 	"io/ioutil"
+
 	"github.com/urfave/cli"
 )
 
@@ -27,7 +28,11 @@ func RunTestCommand(Action interface{}, arguments []string) {
 				Usage: "Load config from `FILE`",
 			},
 			cli.BoolFlag{
-				Name: "production, p",
+				Name:  "production, p",
+				Usage: "update production",
+			},
+			cli.StringFlag{
+				Name:  "namespace, n",
 				Usage: "update production",
 			},
 		},

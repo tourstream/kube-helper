@@ -340,14 +340,16 @@ func TestKindService_SetImageForContainer(t *testing.T) {
 		namespace string
 		tags      []string
 		imagePath string
+		config    loader.Config
 	}{
-		{"foobar", []string{"staging-foobar-latest", "staging-foobar-3"}, "gcr.io/path/app:staging-foobar-3"},
-		{"production", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3"},
-		{"staging", []string{"staging-latest", "staging-3"}, "gcr.io/path/app:staging-3"},
+		{"foobar", []string{"staging-foobar-latest", "staging-foobar-3"}, "gcr.io/path/app:staging-foobar-3", loader.Config{}},
+		{"production", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3", loader.Config{Internal: loader.Internal{IsProduction: true}}},
+		{"random", []string{"latest", "prod-3"}, "gcr.io/path/app:prod-3", loader.Config{Internal: loader.Internal{IsProduction: true}}},
+		{"staging", []string{"staging-latest", "staging-3"}, "gcr.io/path/app:staging-3", loader.Config{}},
 	}
 
 	for _, entry := range dataProvider {
-		kindService, imageServiceMock, _ := getKindService(t, loader.Config{})
+		kindService, imageServiceMock, _ := getKindService(t, entry.config)
 
 		tags := new(model.TagCollection)
 		tags.Manifests = map[string]model.Manifest{}

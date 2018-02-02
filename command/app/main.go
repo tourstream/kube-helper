@@ -14,10 +14,13 @@ var serviceBuilder service.BuilderInterface = new(service.Builder)
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 
-func getNamespace(branchName string, isProdution bool) string {
+func getNamespace(branchName string, isProdution bool, givenProdNamespace string) string {
 	namespace := strings.ToLower(branchName)
 
 	if isProdution {
+		if len(givenProdNamespace) > 0 {
+			return givenProdNamespace
+		}
 		return loader.ProductionEnvironment
 	}
 
