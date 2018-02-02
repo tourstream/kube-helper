@@ -1,16 +1,19 @@
 package app
 
 import (
-	"github.com/urfave/cli"
 	"fmt"
 	"kube-helper/loader"
+
+	"github.com/urfave/cli"
 )
 
 func CmdApply(c *cli.Context) error {
 
-	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"))
+	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"), c.String("namespace"))
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
+
+	configContainer.Internal.IsProduction = c.Bool("production")
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -33,7 +36,7 @@ func CmdApply(c *cli.Context) error {
 		tag = "staging-latest"
 	}
 
-	if kubernetesNamespace == loader.ProductionEnvironment {
+	if configContainer.Internal.IsProduction == true {
 		tag = "latest"
 	}
 

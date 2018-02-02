@@ -19,11 +19,11 @@ type Cleanup struct {
 }
 
 type DNSConfig struct {
-	ProjectID    string `yaml:"project_id"`
-	ManagedZone  string `yaml:"managed_zone"`
-	DomainSuffix string `yaml:"domain_suffix"`
-	BaseDomain   string `yaml:"base_domain"`
-	DomainSpacer string `yaml:"domain_spacer"`
+	ProjectID    string   `yaml:"project_id"`
+	ManagedZone  string   `yaml:"managed_zone"`
+	DomainSuffix string   `yaml:"domain_suffix"`
+	BaseDomain   string   `yaml:"base_domain"`
+	DomainSpacer string   `yaml:"domain_spacer"`
 	CNameSuffix  []string `yaml:"cname_suffix"`
 }
 
@@ -45,6 +45,10 @@ type Database struct {
 
 type Endpoints struct {
 	Enabled bool
+}
+
+type Internal struct {
+	IsProduction bool
 }
 
 type Cluster struct {
@@ -71,6 +75,7 @@ type Config struct {
 	DNS                      DNSConfig `yaml:"dns"`
 	Database                 Database
 	Namespace                Namespace
+	Internal                 Internal `yaml:"-"`
 }
 
 var fileSystemWrapper = afero.NewOsFs()

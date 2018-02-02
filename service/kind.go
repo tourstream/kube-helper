@@ -8,17 +8,18 @@ import (
 	"kube-helper/loader"
 	"kube-helper/util"
 
+	"io"
+	"kube-helper/model"
+	"os"
+
+	apps_v1beta2 "k8s.io/api/apps/v1beta2"
+	batch_v1beta1 "k8s.io/api/batch/v1beta1"
+	core_v1 "k8s.io/api/core/v1"
+	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-	"kube-helper/model"
-	"os"
-	"io"
-	batch_v1beta1 "k8s.io/api/batch/v1beta1"
-	core_v1 "k8s.io/api/core/v1"
-	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
-	apps_v1beta2 "k8s.io/api/apps/v1beta2"
 )
 
 var writer io.Writer = os.Stdout
@@ -599,7 +600,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []core_v1
 				latestTag = "staging-latest"
 			}
 
-			if namespaceWithoutPrefix == loader.ProductionEnvironment {
+			if k.config.Internal.IsProduction == true {
 				latestTag = "latest"
 			}
 

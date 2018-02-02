@@ -5,22 +5,23 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetNamespace(t *testing.T) {
 	for _, name := range []string{"", "master", "staging"} {
-		assert.Equal(t, getNamespace(name, false), "staging")
+		assert.Equal(t, getNamespace(name, false, ""), "staging")
 	}
 
 	for _, name := range []string{"", "master", "staging"} {
-		assert.Equal(t, getNamespace(name, true), "production")
+		assert.Equal(t, getNamespace(name, true, ""), "production")
 	}
 }
 
