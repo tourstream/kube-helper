@@ -11,12 +11,13 @@ import (
 	"bufio"
 	"compress/gzip"
 
+	"os"
+	"time"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"gopkg.in/h2non/gock.v1"
-	"os"
-	"time"
 	util_clock "k8s.io/apimachinery/pkg/util/clock"
 )
 
@@ -110,10 +111,7 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	response := `
 	{
@@ -412,7 +410,7 @@ func createAuthCall() {
 		Post("/o/oauth2/token").
 		Persist().
 		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+		JSON(map[string]string{"access_token": "bar"})
 }
 
 /**

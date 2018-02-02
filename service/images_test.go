@@ -1,24 +1,22 @@
 package service
 
 import (
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"kube-helper/loader"
-	"gopkg.in/h2non/gock.v1"
 	"errors"
+	"kube-helper/loader"
 	"kube-helper/model"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestImages_HasTag(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -32,17 +30,13 @@ func TestImages_HasTag(t *testing.T) {
 
 }
 
-
 func TestImages_HasTagWithWithError(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -57,14 +51,11 @@ func TestImages_HasTagWithWithError(t *testing.T) {
 
 func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -80,7 +71,7 @@ func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 func TestImages_List(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -142,11 +133,7 @@ func TestImages_List(t *testing.T) {
 	"tags": ["1.08", "1.09", "1.10", "latest", "test-249c4560aac8"]
 }
 	`
-
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -188,7 +175,6 @@ func TestImages_List(t *testing.T) {
 			TimeCreatedMs: int64(1475860677921),
 			Tags:          append(make([]string, 0, 4), "test-249c4560aac8"),
 		},
-
 	}
 	expected.SortedManifests = append(make([]model.ManifestPair, 0, 8),
 		model.ManifestPair{
@@ -247,17 +233,13 @@ func TestImages_List(t *testing.T) {
 
 func TestImages_ListWithNoValidJson(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
 	response := `No Valid JSON
 	`
-
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -272,14 +254,11 @@ func TestImages_ListWithNoValidJson(t *testing.T) {
 
 func TestImages_ListWithErrorToGetList(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -292,19 +271,13 @@ func TestImages_ListWithErrorToGetList(t *testing.T) {
 
 }
 
-
 func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-
-
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -321,14 +294,11 @@ func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
 func TestImages_DeleteManifest(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -341,14 +311,11 @@ func TestImages_DeleteManifest(t *testing.T) {
 
 func TestImages_DeleteManifestWithError(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -361,14 +328,11 @@ func TestImages_DeleteManifestWithError(t *testing.T) {
 
 func TestImages_Untag(t *testing.T) {
 
-	imageService,_ := newImagesService()
+	imageService, _ := newImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+	createAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").

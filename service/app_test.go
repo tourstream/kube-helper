@@ -1,23 +1,24 @@
 package service
 
 import (
-	"testing"
-	"kube-helper/loader"
-	"k8s.io/client-go/kubernetes/fake"
-	"github.com/stretchr/testify/assert"
-	testing_k8s "k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/runtime"
-	"fmt"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
-	"gopkg.in/h2non/gock.v1"
-	"time"
 	"errors"
-	"github.com/spf13/afero"
+	"fmt"
+	"kube-helper/loader"
 	"os"
 	"reflect"
-	"k8s.io/api/extensions/v1beta1"
+	"testing"
+	"time"
+
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	util_clock "k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/kubernetes/fake"
+	testing_k8s "k8s.io/client-go/testing"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -1007,8 +1008,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 	singleObject := &v1beta1.Ingress{
 		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
-			LoadBalancer: v1.LoadBalancerStatus{
-			}}}
+			LoadBalancer: v1.LoadBalancerStatus{}}}
 
 	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("get", "ingresses", getObjectReturnFunc(singleObject))
@@ -1263,5 +1263,5 @@ func createAuthCall() {
 	gock.New("https://accounts.google.com").
 		Post("/o/oauth2/token").
 		Reply(200).
-		JSON(map[string]string{"foo": "bar"})
+		JSON(map[string]string{"access_token": "bar"})
 }
