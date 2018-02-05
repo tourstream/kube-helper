@@ -30,6 +30,7 @@ type ApplicationServiceInterface interface {
 	Apply() error
 	HasNamespace() bool
 	GetDomain(dnsConfig loader.DNSConfig) string
+	HandleIngressAnnotationOnApply() error
 }
 
 type applicationService struct {
@@ -103,6 +104,12 @@ func (a *applicationService) Apply() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	err = a.HandleIngressAnnotationOnApply()
+
+	if err != nil {
+		return err
 	}
 
 	pods, err := a.clientSet.CoreV1().Pods(a.prefixedNamespace).List(meta_v1.ListOptions{})

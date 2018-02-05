@@ -3,16 +3,8 @@ package services
 import (
 	"github.com/urfave/cli"
 	"fmt"
-	"kube-helper/loader"
-	"kube-helper/service"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"io"
 )
-
-var writer io.Writer = os.Stdout
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
-var serviceBuilder service.BuilderInterface = new(service.Builder)
 
 func CmdGetIp(c *cli.Context) error {
 
