@@ -136,6 +136,66 @@ var Commands = []cli.Command{
 					},
 				},
 			},
+			{
+				Name:   "add-ip",
+				Usage:  "add a named ip to a load balancer",
+				Action: services.CmdAddRuleToLoadBalancer,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+					cli.StringFlag{
+						Name:  "address, a",
+						Usage: "named address to add to context loadbalancer",
+					},
+				},
+			},
+			{
+				Name:   "remove-ip",
+				Usage:  "remove a named ip from a load balancer",
+				Action: services.CmdRemoveRuleFromLoadBalancer,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+					cli.StringFlag{
+						Name:  "address, a",
+						Usage: "named address to remove from context loadbalancer",
+					},
+				},
+			},
+			{
+				Name:   "add-cert",
+				Usage:  "add a ssl-certificate to a load balancer",
+				Action: services.CmdAddCertificate,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+					cli.StringFlag{
+						Name:  "ssl-certificate, s",
+						Usage: "ssl-certificate to add to context loadbalancer",
+					},
+				},
+			},
+			{
+				Name:   "remove-cert",
+				Usage:  "remove a ssl-certificate from a load balancer",
+				Action: services.CmdRemoveCertificate,
+				Flags: []cli.Flag{
+					cli.StringFlag{
+						Name:  "config, c",
+						Usage: "Load config from `FILE`",
+					},
+					cli.StringFlag{
+						Name:  "ssl-certificate, s",
+						Usage: "ssl-certificate to remove from context loadbalancer",
+					},
+				},
+			},
 		},
 	},
 	{

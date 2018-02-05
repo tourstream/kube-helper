@@ -1248,7 +1248,7 @@ func getApplicationService(t *testing.T, namespace string, config loader.Config)
 
 	assert.NoError(t, err)
 
-	computeService, err := builder.getComputeService()
+	computeService, err := builder.GetComputeService()
 
 	assert.NoError(t, err)
 
