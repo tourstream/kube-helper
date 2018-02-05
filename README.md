@@ -20,6 +20,11 @@ This tool is used in our workflow to help during the setup of a kubernetes deplo
 6. Run `dep ensure` which ensures you'll have all the dependencies
 7. Go into the `kube-helper` directory and run `go build`
 
+## Usage
+
+1. install gcloud sdk
+2. run `gcloud auth application-default login` to create default credentials
+
 [coveralls-image]: https://coveralls.io/repos/github/tourstream/kube-helper/badge.svg
 [coveralls-url]: https://coveralls.io/github/tourstream/kube-helper
 
@@ -28,3 +33,14 @@ This tool is used in our workflow to help during the setup of a kubernetes deplo
 
 [license-image]: https://img.shields.io/github/license/tourstream/kube-helper.svg?style=flat-square
 [license-url]: https://github.com/tourstream/kube-helper/blob/master/LICENSE
+
+## Tests
+
+To generate mocks use the following tool
+
+    https://github.com/vektra/mockery
+
+
+Example command to generate mocks for e.g. command folder
+
+    mockery -dir service -name ApplicationServiceInterface -output _mocks -outpkg _mocks

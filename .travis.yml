@@ -6,6 +6,9 @@ matrix:
       go: 1.8.x
     - os: linux
       go: 1.9.x
+  allow_failures:
+    - os: linux
+      go: 1.10.x
 
 go_import_path: kube-helper
 
