@@ -20,6 +20,11 @@ This tool is used in our workflow to help during the setup of a kubernetes deplo
 6. Run `dep ensure` which ensures you'll have all the dependencies
 7. Go into the `kube-helper` directory and run `go build`
 
+## Usage
+
+1. install gcloud sdk
+2. run `gcloud auth application-default login` to create default credentials
+
 [coveralls-image]: https://coveralls.io/repos/github/tourstream/kube-helper/badge.svg
 [coveralls-url]: https://coveralls.io/github/tourstream/kube-helper
 
