@@ -5,10 +5,13 @@ import (
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v2"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 const StagingEnvironment = "staging"
 const ProductionEnvironment = "production"
+
+var validate *validator.Validate
 
 type ConfigLoaderInterface interface {
 	LoadConfigFromPath(filepath string) (Config, error)
@@ -49,8 +52,8 @@ type Endpoints struct {
 
 type Cluster struct {
 	Type         string
-	ProjectID    string `yaml:"project_id"`
-	ClusterID    string `yaml:"cluster_id"`
+	ProjectID    string `yaml:"project_id" validate:"required"`
+	ClusterID    string `yaml:"cluster_id" validate:"required"`
 	Zone         string
 	AlphaSupport bool `yaml:"alpha_support"`
 }
@@ -70,7 +73,7 @@ type Config struct {
 	Cleanup                  Cleanup
 	DNS                      DNSConfig `yaml:"dns"`
 	Database                 Database
-	Namespace                Namespace
+	Namespace                Namespace `validate:"required"`
 }
 
 var fileSystemWrapper = afero.NewOsFs()
@@ -87,6 +90,15 @@ func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
 		config.Cluster.Zone = config.Zone
 		config.Cluster.ClusterID = config.ClusterID
 		config.Cluster.Type = "gcp"
+	}
+
+	validate = validator.New()
+	err = validate.Struct(config)
+
+	if err != nil {
+		if _, ok := err.(*validator.InvalidValidationError); ok {
+			return config, err
+		}
 	}
 
 	return config, err

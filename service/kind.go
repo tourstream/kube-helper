@@ -549,29 +549,25 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *extensi
 
 	_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Get(ingress.Name, meta_v1.GetOptions{})
 
+	funcCall := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Update
+	message := "Ingress \"%s\" was updated.\n"
+
 	if err != nil {
-		_, err := k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Create(ingress)
-
-		if err != nil {
-			return err
-		}
-
-		k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
-
-		fmt.Fprintf(writer, "Ingress \"%s\" was generated.\n", ingress.Name)
-
-		return nil
+		funcCall = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Create
+		message = "Ingress \"%s\" was generated.\n"
 	}
 
-	_, err = k.clientSet.ExtensionsV1beta1().Ingresses(kubernetesNamespace).Update(ingress)
-
+	_, err = funcCall(ingress)
 	if err != nil {
 		return err
 	}
 
 	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
+	fmt.Fprintf(writer, message, ingress.Name)
 
-	fmt.Fprintf(writer, "Ingress \"%s\" was updated.\n", ingress.Name)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -641,3 +637,4 @@ func difference(a, b []string) []string {
 	}
 	return ab
 }
+

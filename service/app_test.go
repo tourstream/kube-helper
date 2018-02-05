@@ -625,7 +625,7 @@ func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 		assert.EqualError(t, appService.Apply(), "explode")
 	})
 
-	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\nNo suitable ingress found\nNo Annotations to process")
 }
 
 func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
@@ -1248,7 +1248,7 @@ func getApplicationService(t *testing.T, namespace string, config loader.Config)
 
 	assert.NoError(t, err)
 
-	computeService, err := builder.getComputeService()
+	computeService, err := builder.GetComputeService()
 
 	assert.NoError(t, err)
 
