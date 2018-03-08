@@ -31,6 +31,7 @@ type BuilderInterface interface {
 	GetApplicationService(client kubernetes.Interface, namespace string, config loader.Config) (ApplicationServiceInterface, error)
 	GetImagesService() (ImagesInterface, error)
 	GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface
+	GetComputeService() (*compute.Service, error)
 }
 
 type Builder struct {
@@ -140,7 +141,7 @@ func (h *Builder) GetApplicationService(client kubernetes.Interface, namespace s
 		return nil, err
 	}
 
-	computeService, err := h.getComputeService()
+	computeService, err := h.GetComputeService()
 
 	if err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func (h *Builder) getStorageClient() (*StorageClient.Client, error) {
 	return StorageClient.NewClient(context.Background())
 }
 
-func (h *Builder) getComputeService() (*compute.Service, error) {
+func (h *Builder) GetComputeService() (*compute.Service, error) {
 	httpClient, err := h.GetClient(compute.CloudPlatformScope)
 
 	if err != nil {
