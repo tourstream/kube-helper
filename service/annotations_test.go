@@ -153,15 +153,16 @@ func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handl
 
 func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	projectId = "testing"
 	kb8Namespace = "foobar"
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(404).SetError(errors.New("Error 404"))
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-443").
 		Reply(404).SetError(errors.New("Error 404"))
@@ -174,6 +175,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -189,6 +191,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	"portRange":"443-443",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpsProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -234,8 +237,8 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 }
 func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules").
 		Reply(502).SetError(errors.New("failed"))
@@ -275,12 +278,13 @@ func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 
 func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(404).SetError(errors.New("Error 404"))
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-443").
 		Reply(404).SetError(errors.New("Error 404"))
@@ -293,6 +297,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -300,6 +305,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 		Reply(200).
 		JSON(map[string]string{})
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		Reply(502).SetError(errors.New("failed"))
@@ -342,38 +348,10 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 	assert.Contains(t, output, "Adress {test-ip1 80} added")
 }
 
-/*
-
-
-func TestAnnotations_CreateNewRule_FailGetRuleList(t *testing.T) {
-	builder := new(Builder)
-	computeService, _ = builder.GetComputeService()
-
-	defer gock.Off()
-	createAuthCall()
-
-	projectId = "testing"
-	kb8Namespace = "foobar"
-
-	gock.New("https://www.googleapis.com").
-		Get("/compute/v1/projects/testing/global/forwardingRules").
-		Reply(502).SetError(errors.New("failed"))
-
-	var address NamedAddress
-	address.port = "80"
-	address.ipName = "foobar"
-
-	rule, err := createNewRule(address)
-	assert.Nil(t, rule)
-	assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/forwardingRules?alt=json: failed")
-
-}
-
-*/
 func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(404).SetError(errors.New("Error 404"))
@@ -386,6 +364,7 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -395,6 +374,7 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 
 	mockGetForwardingRules()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(502).SetError(errors.New("failed"))
@@ -434,7 +414,6 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 
 func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	mockGetForwardingRules()
 	mockGetAddresses()
@@ -470,8 +449,8 @@ func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
 
 func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(200).
@@ -523,8 +502,8 @@ func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
 
 func TestAnnotations_CreateNewRule_RuleLoadError(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(502).SetError(errors.New("failed"))
@@ -645,7 +624,6 @@ func TestAnnotations_GetIpAddressByName_NoMatch(t *testing.T) {
 
 func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	certificates := []string{"fti-nl", "fti-fr"}
 
@@ -656,6 +634,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
@@ -698,13 +677,13 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 
 func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	mockGetCertificate("fti-nl")
 
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
@@ -747,11 +726,11 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 
 func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGetCertificate(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	projectId = "testing"
 	kb8Namespace = "foobar"
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/sslCertificates/fti-fr").
 		Reply(502).SetError(errors.New("Failed"))
@@ -823,7 +802,6 @@ func TestAnnotations_AddCertificatesToHttpsProxies_EmptyCertList(t *testing.T) {
 
 func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	certificates := []string{"fti-nl", "fti-fr"}
 
@@ -831,6 +809,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testin
 		mockGetCertificate(certificate)
 	}
 
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/targetHttpsProxies").
 		Reply(502).SetError(errors.New("failed"))
@@ -868,7 +847,6 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testin
 
 func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
 
 	certificates := []string{"fti-nl", "fti-fr"}
 
@@ -879,6 +857,8 @@ func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
+
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
@@ -949,6 +929,8 @@ func mockGetAddresses() {
   }
 ]}`)
 
+
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
@@ -983,6 +965,8 @@ func mockGetForwardingRules() {
 		"target": "https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"
 	}]}`)
 
+
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules").
 		Reply(200).
@@ -999,6 +983,8 @@ func mockGetCertificate(name string) {
     "selfLink": "https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/` + name + `"
 }`)
 
+
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/sslCertificates/" + name).
 		Reply(200).
@@ -1032,6 +1018,8 @@ func mockGetHttpsProxies() {
 }
 ]}`)
 
+
+	createAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/targetHttpsProxies").
 		Reply(200).
