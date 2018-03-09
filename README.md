@@ -1,8 +1,4 @@
-[![Travis-CI][travis-image]][travis-url]
-
-[![Coverage Status][coveralls-image]][coveralls-url]
-
-[![License][license-image]][license-url]
+[![Travis-CI][travis-image]][travis-url][![Coverage Status][coveralls-image]][coveralls-url] [![Maintainability][code-climate-image]][code-climate-url] [![License][license-image]][license-url]
 
 ***
 
@@ -33,6 +29,9 @@ This tool is used in our workflow to help during the setup of a kubernetes deplo
 
 [license-image]: https://img.shields.io/github/license/tourstream/kube-helper.svg?style=flat-square
 [license-url]: https://github.com/tourstream/kube-helper/blob/master/LICENSE
+
+[code-climate-image]: https://api.codeclimate.com/v1/badges/c5176a430dbb0b66e5e4/maintainability
+[code-climate-url]: https://codeclimate.com/github/tourstream/kube-helper/maintainability
 
 ## Tests
 
