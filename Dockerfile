@@ -1,4 +1,4 @@
-FROM golang:1.8 as builder
+FROM golang:1.9 as builder
 RUN go get -u github.com/golang/dep
 RUN go install github.com/golang/dep/cmd/dep
 
