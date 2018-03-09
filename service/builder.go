@@ -4,22 +4,23 @@ import (
 	"encoding/base64"
 	"net/http"
 
+	"errors"
+	"kube-helper/loader"
+
 	StorageClient "cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/dns/v1"
+	"google.golang.org/api/servicemanagement/v1"
 	"google.golang.org/api/sqladmin/v1beta4"
 	"google.golang.org/api/storage/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"kube-helper/loader"
-	"google.golang.org/api/servicemanagement/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"errors"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 type BuilderInterface interface {
@@ -186,19 +187,18 @@ func (h *Builder) getServiceManagementService() (*servicemanagement.APIService, 
 	return servicemanagement.New(httpClient)
 }
 
-func (h *Builder) GetImagesService() (ImagesInterface, error)  {
+func (h *Builder) GetImagesService() (ImagesInterface, error) {
 	imageService, err := newImagesService()
 
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return imageService, nil
 }
 
-func (h *Builder) GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface  {
+func (h *Builder) GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface {
 	kindService := newKind(client, imagesService, config)
 
 	return kindService
 }
-

@@ -4,9 +4,10 @@ import (
 	"context"
 	"io"
 	"net/http"
+
 	StorageClient "cloud.google.com/go/storage"
-	"google.golang.org/api/storage/v1"
 	"github.com/spf13/afero"
+	"google.golang.org/api/storage/v1"
 )
 
 var fileSystem = afero.NewOsFs()
