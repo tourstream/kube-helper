@@ -1,4 +1,7 @@
 package main
 
-const Name string = "kube-helper"
-const Version string = "0.1.0"
+//Tool name
+const Name = "kube-helper"
+
+//Version number
+const Version = "4.0.0-dev"
