@@ -9,10 +9,11 @@ import (
 	"kube-helper/service"
 	"kube-helper/util"
 
-	"github.com/urfave/cli"
 	"fmt"
-	"regexp"
 	"kube-helper/model"
+	"regexp"
+
+	"github.com/urfave/cli"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
@@ -90,7 +91,7 @@ func CmdCleanup(c *cli.Context) error {
 		}
 	}
 
-	for manifestId, manifest := range manifestsForDeletion {
+	for manifestID, manifest := range manifestsForDeletion {
 		for _, tag := range manifest.Tags {
 			err = imagesService.Untag(configContainer.Cleanup, tag)
 
@@ -101,13 +102,13 @@ func CmdCleanup(c *cli.Context) error {
 			fmt.Fprintf(writer, "Tag %s was removed from image. \n", tag)
 		}
 
-		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestId)
+		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestID)
 
 		if err != nil {
 			return cli.NewExitError(err.Error(), 1)
 		}
 
-		fmt.Fprintf(writer, "Image %s was removed.\n", manifestId)
+		fmt.Fprintf(writer, "Image %s was removed.\n", manifestID)
 	}
 
 	return nil
