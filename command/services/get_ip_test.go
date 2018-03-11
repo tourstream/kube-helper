@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -29,7 +29,7 @@ func TestCmdGetIpWithErrorForGetService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -42,7 +42,7 @@ func TestCmdGetIpWithErrorForGetService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -73,7 +73,7 @@ func TestCmdGetIp(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -86,7 +86,7 @@ func TestCmdGetIp(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 

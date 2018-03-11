@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -31,7 +31,7 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -44,7 +44,7 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -78,7 +78,7 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -92,7 +92,7 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -129,7 +129,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -143,7 +143,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -152,7 +152,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	}
 
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
@@ -179,7 +179,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -196,7 +196,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -205,7 +205,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 	}
 
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)

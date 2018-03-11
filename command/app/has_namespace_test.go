@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -18,7 +18,7 @@ func TestCmdHasNamespaceWithWrongConf(t *testing.T) {
 
 func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -56,7 +56,7 @@ func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 
 func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -70,7 +70,7 @@ func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 
@@ -99,7 +99,7 @@ func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -113,7 +113,7 @@ func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 

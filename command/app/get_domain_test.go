@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -18,7 +18,7 @@ func TestCmdGetDomainWithWrongConf(t *testing.T) {
 
 func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -57,7 +57,7 @@ func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 func TestCmdGetDomain(t *testing.T) {
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -69,7 +69,7 @@ func TestCmdGetDomain(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	appService.On("GetDomain", loader.DNSConfig{}).Return("domain")
 
