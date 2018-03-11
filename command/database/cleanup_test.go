@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"bytes"
 
@@ -22,7 +22,7 @@ func TestCmdCleanupWithWrongConfig(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -49,14 +49,14 @@ func TestCmdCleanupWithWrongSqlService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(loader.Config{}, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
@@ -85,21 +85,21 @@ func TestCmdCleanupWithFailureLoadBranches(t *testing.T) {
 	config := loader.Config{}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return(nil, errors.New("explode"))
@@ -136,21 +136,21 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"master", "ets-123"}, nil)
@@ -197,21 +197,21 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"master", "ets-123"}, nil)
@@ -290,14 +290,14 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -307,7 +307,7 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"master", "ets-123"}, nil)
@@ -417,21 +417,21 @@ func TestCmdCleanup(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
 	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 	branchLoader = branchLoaderMock
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"master", "ets-123"}, nil)

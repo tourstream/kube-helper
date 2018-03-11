@@ -372,17 +372,17 @@ func TestKindService_SetImageForContainer(t *testing.T) {
 
 }
 
-func getKindServiceInterface(config loader.Config) (KindInterface, *_mocks.ImagesInterface, *fake.Clientset) {
-	imageServiceMock := new(_mocks.ImagesInterface)
+func getKindServiceInterface(config loader.Config) (KindInterface, *mocks.ImagesInterface, *fake.Clientset) {
+	imageServiceMock := new(mocks.ImagesInterface)
 
 	fakeClientSet := fake.NewSimpleClientset()
 
 	return NewKind(fakeClientSet, imageServiceMock, config), imageServiceMock, fakeClientSet
 }
 
-func getKindService(config loader.Config) (*kindService, *_mocks.ImagesInterface, *fake.Clientset) {
+func getKindService(config loader.Config) (*kindService, *mocks.ImagesInterface, *fake.Clientset) {
 
-	imageServiceMock := new(_mocks.ImagesInterface)
+	imageServiceMock := new(mocks.ImagesInterface)
 
 	fakeClientSet := fake.NewSimpleClientset()
 

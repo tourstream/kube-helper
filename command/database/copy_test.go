@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"bufio"
 	"compress/gzip"
@@ -25,7 +25,7 @@ func TestCmdCopyWithWrongConfig(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -47,14 +47,14 @@ func TestCmdCopyWithWrongSqlService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(loader.Config{}, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
@@ -86,14 +86,14 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -156,14 +156,14 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 	}
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	appFS := afero.NewMemMapFs()
@@ -183,7 +183,7 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 
 	file, err = appFS.Open("copy.sql.gz")
 
-	storageServiceMock := new(_mocks.BucketServiceInterface)
+	storageServiceMock := new(mocks.BucketServiceInterface)
 	storageServiceMock.On("SetBucketACL", "bnuzuupn3haw4ioe66by@speckle-umbrella-3.iam.gserviceaccount.com", "WRITER").Return(nil)
 	storageServiceMock.On("RemoveBucketACL", "bnuzuupn3haw4ioe66by@speckle-umbrella-3.iam.gserviceaccount.com").Return(nil)
 	storageServiceMock.On("DownLoadFile", "foobar-testing.sql.gz", "bnuzuupn3haw4ioe66by@speckle-umbrella-3.iam.gserviceaccount.com").Return(bufio.NewReader(file), err)

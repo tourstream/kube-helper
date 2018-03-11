@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -21,7 +21,7 @@ func TestCmdShutdownWithErrorForApplicationService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -59,7 +59,7 @@ func TestCmdShutdownWithErrorForDeleteNamespace(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -73,7 +73,7 @@ func TestCmdShutdownWithErrorForDeleteNamespace(t *testing.T) {
 
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 
@@ -101,7 +101,7 @@ func TestCmdShutdown(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -115,7 +115,7 @@ func TestCmdShutdown(t *testing.T) {
 
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 

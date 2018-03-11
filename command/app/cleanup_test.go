@@ -2,9 +2,9 @@ package app
 
 import (
 	"errors"
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,7 +27,7 @@ func TestCmdCleanupWithErrorForGetBranches(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -40,13 +40,13 @@ func TestCmdCleanupWithErrorForGetBranches(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilderMock.On("GetClientSet", config).Return(fake.NewSimpleClientset(), nil)
 
 	serviceBuilder = serviceBuilderMock
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return(nil, errors.New("explode"))
 
@@ -75,7 +75,7 @@ func TestCmdCleanupWithErrorForGetNamespaces(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -94,13 +94,13 @@ func TestCmdCleanupWithErrorForGetNamespaces(t *testing.T) {
 	})
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	serviceBuilder = serviceBuilderMock
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{}, nil)
 
@@ -129,7 +129,7 @@ func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -149,7 +149,7 @@ func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, nil, errors.New("explode"))
@@ -157,7 +157,7 @@ func TestCmdCleanupWithErrorForInitApplicationService(t *testing.T) {
 	serviceBuilder = serviceBuilderMock
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"test"}, nil)
 
@@ -187,7 +187,7 @@ func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -204,14 +204,14 @@ func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
 	}
 
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
-	appService := new(_mocks.ApplicationServiceInterface)
+	appService := new(mocks.ApplicationServiceInterface)
 
 	appService.On("DeleteByNamespace").Return(errors.New("explode"))
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
@@ -219,7 +219,7 @@ func TestCmdCleanupWithErrorForDeleteNamespace(t *testing.T) {
 	serviceBuilder = serviceBuilderMock
 
 	oldBranchLoader := branchLoader
-	branchLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoaderMock.On("LoadBranches", config.Bitbucket).Return([]string{"test"}, nil)
 

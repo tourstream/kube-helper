@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -21,7 +21,7 @@ func TestCmdApplyWithErrorForApplicationService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -35,7 +35,7 @@ func TestCmdApplyWithErrorForApplicationService(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -64,7 +64,7 @@ func TestCmdApplyWithErrorForImagesService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -79,11 +79,11 @@ func TestCmdApplyWithErrorForImagesService(t *testing.T) {
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
-	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, new(_mocks.ApplicationServiceInterface), nil)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, new(mocks.ApplicationServiceInterface), nil)
 
 	serviceBuilderMock.On("GetImagesService").Return(nil, errors.New("explode"))
 
@@ -110,7 +110,7 @@ func TestCmdApplyWithErrorForHasTag(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -125,12 +125,12 @@ func TestCmdApplyWithErrorForHasTag(t *testing.T) {
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-latest").Return(false, errors.New("explode"))
 
@@ -161,7 +161,7 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -175,12 +175,12 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "latest").Return(false, nil)
 
@@ -211,7 +211,7 @@ func TestCmdApplyWithErrorForCreateApplication(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -225,12 +225,12 @@ func TestCmdApplyWithErrorForCreateApplication(t *testing.T) {
 
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 
@@ -263,7 +263,7 @@ func TestCmdApply(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoaderInterface)
 
 	configLoader = configLoaderMock
 
@@ -276,16 +276,16 @@ func TestCmdApply(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 	oldApplicationServiceCreator := applicationServiceCreator
 
-	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
 
 	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	imagesLoaderMock.On("HasTag", config.Cleanup, "staging-foobar-latest").Return(true, nil)
 

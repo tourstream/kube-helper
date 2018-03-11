@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"bytes"
-
-	"kube-helper/_mocks"
 
 	testingKube "kube-helper/testing"
 
@@ -702,8 +701,8 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -779,8 +778,8 @@ func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -823,8 +822,8 @@ func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -865,8 +864,8 @@ func TestApplicationService_Apply(t *testing.T) {
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -957,8 +956,8 @@ func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) 
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1022,8 +1021,8 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1103,8 +1102,8 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1193,8 +1192,8 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1285,8 +1284,8 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1399,8 +1398,8 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		kindServiceCreator = oldKindServiceCreator
 	}()
 
-	imagesMock := new(_mocks.ImagesInterface)
-	kindMock := new(_mocks.KindInterface)
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
 
 	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
@@ -1466,7 +1465,7 @@ func getBuilderMock(t *testing.T, config loader.Config, imageMock image.ImagesIn
 	assert.NoError(t, err)
 
 	fakeClientSet := fake.NewSimpleClientset()
-	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	var mockedImageError error
 
