@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/api/compute/v1"
 	"k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type NamedAddress struct {
@@ -15,13 +15,7 @@ type NamedAddress struct {
 	port   string
 }
 
-var projectId string
-var kb8Namespace string
-
 func (a *applicationService) HandleIngressAnnotationOnApply() error {
-	projectId = a.config.Cluster.ProjectID
-	kb8Namespace = a.prefixedNamespace
-
 	annotations, err := a.getIngressAnnotations()
 
 	if err != nil {
@@ -44,7 +38,7 @@ func (a *applicationService) HandleIngressAnnotationOnApply() error {
 }
 
 func (a *applicationService) getIngressAnnotations() (map[string]string, error) {
-	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(meta_v1.ListOptions{})
+	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(metaV1.ListOptions{})
 
 	if err != nil {
 		return nil, err
@@ -67,7 +61,7 @@ func (a *applicationService) getIngress(ingressList *v1beta1.IngressList) (v1bet
 		}
 	}
 
-	return v1beta1.Ingress{}, errors.New("No suitable ingress found")
+	return v1beta1.Ingress{}, errors.New("no suitable ingress found")
 }
 
 func (a *applicationService) applyAnnotation(annotationName string, annotationValue string) error {
@@ -79,13 +73,13 @@ func (a *applicationService) applyAnnotation(annotationName string, annotationVa
 	case "tourstream.eu/named-ip-address":
 		return a.addNewRulesToLoadBalancer(annotationValue)
 	case "tourstream.eu/pre-shared-cert":
-		return a.addCertificatesToHttpsProxies(strings.Split(annotationValue, ","))
+		return a.addCertificatesToHTTPSProxies(strings.Split(annotationValue, ","))
 	default:
 		return errors.New("not supported Annotation")
 	}
 }
 
-func (a *applicationService) addCertificatesToHttpsProxies(certificates []string) error {
+func (a *applicationService) addCertificatesToHTTPSProxies(certificates []string) error {
 
 	certificateList, err := a.getCertificateList(certificates)
 	if err != nil {
@@ -111,14 +105,14 @@ func (a *applicationService) addCertificatesToHttpsProxies(certificates []string
 }
 
 func (a *applicationService) getProxyList() ([]*compute.TargetHttpsProxy, error) {
-	proxies, err := a.computeService.TargetHttpsProxies.List(projectId).Do()
+	proxies, err := a.computeService.TargetHttpsProxies.List(a.config.Cluster.ProjectID).Do()
 	if err != nil {
 		return nil, err
 	}
 
 	var proxyList []*compute.TargetHttpsProxy
 	for _, proxy := range proxies.Items {
-		if strings.Contains(proxy.Name, kb8Namespace) {
+		if strings.Contains(proxy.Name, a.prefixedNamespace) {
 			proxyList = append(proxyList, proxy)
 		}
 	}
@@ -144,7 +138,7 @@ func (a *applicationService) getCertificateList(certificates []string) ([]string
 	}
 
 	if len(certificateList) == 0 {
-		return nil, errors.New("No Certificate to add")
+		return nil, errors.New("no Certificate to add")
 	}
 
 	return certificateList, nil
@@ -157,7 +151,7 @@ func (a *applicationService) appendCertificates(proxy *compute.TargetHttpsProxy,
 
 	certificatesRequest := new(compute.TargetHttpsProxiesSetSslCertificatesRequest)
 	certificatesRequest.SslCertificates = proxy.SslCertificates
-	_, err := a.computeService.TargetHttpsProxies.SetSslCertificates(projectId, proxy.Name, certificatesRequest).Do()
+	_, err := a.computeService.TargetHttpsProxies.SetSslCertificates(a.config.Cluster.ProjectID, proxy.Name, certificatesRequest).Do()
 
 	return err
 }
@@ -175,7 +169,7 @@ func (a *applicationService) addToList(list []string, value string) []string {
 }
 
 func (a *applicationService) getCertificateLink(certificateName string) (string, error) {
-	certificate, err := a.computeService.SslCertificates.Get(projectId, certificateName).Do()
+	certificate, err := a.computeService.SslCertificates.Get(a.config.Cluster.ProjectID, certificateName).Do()
 
 	if err != nil {
 		return "", err

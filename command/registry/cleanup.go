@@ -23,7 +23,7 @@ var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
 
 var writer io.Writer = os.Stdout
 
-// CmdCleanup: cleans the project related registry in gcp
+// CmdCleanup cleans the project related registry in gcp
 // Remove all images which are not related anymore to a branch in bitbucket
 func CmdCleanup(c *cli.Context) error {
 

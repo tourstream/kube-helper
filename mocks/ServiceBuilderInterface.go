@@ -131,8 +131,8 @@ func (_m *ServiceBuilderInterface) GetServiceManagementService() (*servicemanage
 	return r0, r1
 }
 
-// GetSqlService provides a mock function with given fields:
-func (_m *ServiceBuilderInterface) GetSqlService() (*sqladmin.Service, error) {
+// GetSQLService provides a mock function with given fields:
+func (_m *ServiceBuilderInterface) GetSQLService() (*sqladmin.Service, error) {
 	ret := _m.Called()
 
 	var r0 *sqladmin.Service

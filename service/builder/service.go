@@ -29,7 +29,7 @@ import (
 type ServiceBuilderInterface interface {
 	GetClientSet(config loader.Config) (kubernetes.Interface, error)
 	GetDNSService() (*dns.Service, error)
-	GetSqlService() (*sqladmin.Service, error)
+	GetSQLService() (*sqladmin.Service, error)
 	GetStorageService(bucketName string) (bucket.BucketServiceInterface, error)
 	GetImagesService() (image.ImagesInterface, error)
 	GetComputeService() (*compute.Service, error)
@@ -103,7 +103,7 @@ func (h *Builder) GetDNSService() (*dns.Service, error) {
 	return dns.New(client)
 }
 
-func (h *Builder) GetSqlService() (*sqladmin.Service, error) {
+func (h *Builder) GetSQLService() (*sqladmin.Service, error) {
 	client, err := h.getClient(sqladmin.CloudPlatformScope)
 
 	if err != nil {
@@ -166,11 +166,5 @@ func (h *Builder) GetServiceManagementService() (*servicemanagement.APIService, 
 }
 
 func (h *Builder) GetImagesService() (image.ImagesInterface, error) {
-	imageService, err := image.NewImagesService()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return imageService, nil
+	return image.NewImagesService()
 }

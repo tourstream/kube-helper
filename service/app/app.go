@@ -159,13 +159,13 @@ func (a *applicationService) Apply() error {
 func (a *applicationService) DeleteByNamespace() error {
 	ip, _ := a.getGcpLoadBalancerIP(10)
 
-	var projectId string
+	var projectID string
 
 	if a.config.Cluster.Type == "gcp" {
-		projectId = a.config.Cluster.ProjectID
+		projectID = a.config.Cluster.ProjectID
 	}
 
-	err := a.deleteIngress(projectId)
+	err := a.deleteIngress(projectID)
 
 	if err != nil {
 		return err

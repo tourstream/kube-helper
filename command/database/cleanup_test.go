@@ -59,7 +59,7 @@ func TestCmdCleanupWithWrongSqlService(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
+	serviceBuilderMock.On("GetSQLService").Return(nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -95,8 +95,8 @@ func TestCmdCleanupWithFailureLoadBranches(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(mocks.BranchLoaderInterface)
@@ -146,8 +146,8 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(mocks.BranchLoaderInterface)
@@ -207,8 +207,8 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(mocks.BranchLoaderInterface)
@@ -300,8 +300,8 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	oldClock := clock
 	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
@@ -427,8 +427,8 @@ func TestCmdCleanup(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	oldBranchLoader := branchLoader
 	branchLoaderMock := new(mocks.BranchLoaderInterface)

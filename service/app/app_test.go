@@ -808,7 +808,7 @@ func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 		assert.EqualError(t, appService.Apply(), "explode")
 	})
 
-	assert.Equal(t, output, "Namespace \"foobar\" was generated\nNo suitable ingress found\nNo Annotations to process")
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\nno suitable ingress found\nNo Annotations to process")
 }
 
 func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {

@@ -28,7 +28,7 @@ type images struct {
 
 const manifestPath = "https://%s/v2/%s/%s/manifests/%s"
 
-func NewImagesService() (*images, error) {
+func NewImagesService() (ImagesInterface, error) {
 	ctx := context.Background()
 	client, err := google.DefaultClient(ctx)
 
@@ -36,8 +36,9 @@ func NewImagesService() (*images, error) {
 		return nil, err
 	}
 
-	k := images{client}
-	return &k, nil
+	k := new(images)
+	k.client = client
+	return k, nil
 }
 
 func (i *images) HasTag(config loader.Cleanup, tag string) (bool, error) {

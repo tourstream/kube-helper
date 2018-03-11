@@ -212,9 +212,6 @@ func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handl
 func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	defer gock.Off()
 
-	projectId = "testing"
-	kb8Namespace = "foobar"
-
 	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
@@ -302,7 +299,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	output := captureOutput(func() {
 		assert.NoError(t, appService.HandleIngressAnnotationOnApply())
 	})
-	assert.Contains(t, output, "Adress {test-ip1 80} added\nAdress {test-ip1 443} added")
+	assert.Contains(t, output, "Address {test-ip1 80} added\nAddress {test-ip1 443} added")
 }
 func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 	defer gock.Off()
@@ -437,7 +434,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 		assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 	})
 
-	assert.Contains(t, output, "Adress {test-ip1 80} added")
+	assert.Contains(t, output, "Address {test-ip1 80} added")
 }
 
 func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
@@ -558,7 +555,7 @@ func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
 
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "Ip Address already used")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "ip Address already used")
 }
 
 func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
@@ -729,8 +726,7 @@ func TestAnnotations_GetRuleToCopy_WaitAndNoMatch(t *testing.T) {
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
-		err := appService.HandleIngressAnnotationOnApply()
-		assert.Contains(t, err.Error(), "No existing rule for namespace found")
+		assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "no existing rule for namespace found")
 	})
 
 	assert.Contains(t, output, "Waiting for first Rule to be appended\nWaiting for first Rule to be appended\nWaiting for first Rule to be appended")
@@ -779,8 +775,7 @@ func TestAnnotations_GetIpAddressByName_NoMatch(t *testing.T) {
 
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err = appService.HandleIngressAnnotationOnApply()
-	assert.Contains(t, err.Error(), "Ip Address not found")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "ip Address not found")
 }
 
 func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
@@ -792,7 +787,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 		mockGetCertificate(certificate)
 	}
 
-	mockGetHttpsProxies()
+	mockGetHTTPSProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
 	testingKube.CreateAuthCall()
@@ -853,7 +848,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 
 	mockGetCertificate("fti-nl")
 
-	mockGetHttpsProxies()
+	mockGetHTTPSProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
 	testingKube.CreateAuthCall()
@@ -911,9 +906,6 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 
 func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGetCertificate(t *testing.T) {
 	defer gock.Off()
-
-	projectId = "testing"
-	kb8Namespace = "foobar"
 
 	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
@@ -1001,9 +993,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_EmptyCertList(t *testing.T) {
 
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err = appService.HandleIngressAnnotationOnApply()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "No Certificate to add")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "no Certificate to add")
 }
 
 func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testing.T) {
@@ -1069,7 +1059,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 		mockGetCertificate(certificate)
 	}
 
-	mockGetHttpsProxies()
+	mockGetHTTPSProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
 	testingKube.CreateAuthCall()
@@ -1212,7 +1202,7 @@ func mockGetCertificate(name string) {
 		JSON(certi)
 }
 
-func mockGetHttpsProxies() {
+func mockGetHTTPSProxies() {
 	var httpsProxies = []byte(`{"items":[{
 "creationTimestamp": "2018-02-12T01:01:23.856-08:00",
 "id": "1914888759999785228",

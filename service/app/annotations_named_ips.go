@@ -23,13 +23,13 @@ func (a *applicationService) addNewRulesToLoadBalancer(addresses string) error {
 			return err
 		}
 
-		_, err = a.computeService.GlobalForwardingRules.Insert(projectId, newRule).Do()
+		_, err = a.computeService.GlobalForwardingRules.Insert(a.config.Cluster.ProjectID, newRule).Do()
 
 		if err != nil {
 			return err
 		}
 
-		fmt.Fprintf(writer, "Adress %s added\n", address)
+		fmt.Fprintf(writer, "Address %s added\n", address)
 	}
 
 	return nil
@@ -70,7 +70,7 @@ func (a *applicationService) createNewRule(address NamedAddress) (*compute.Forwa
 		return nil, err
 	}
 
-	ipAddress, err := a.getIpAddressForNewRule(address.ipName)
+	ipAddress, err := a.getIPAddressForNewRule(address.ipName)
 
 	if err != nil {
 		return nil, err
@@ -96,7 +96,7 @@ func (a *applicationService) createNewRule(address NamedAddress) (*compute.Forwa
 }
 
 func (a *applicationService) newRulePreCheck(newName string) error {
-	_, err := a.computeService.GlobalForwardingRules.Get(projectId, newName).Do()
+	_, err := a.computeService.GlobalForwardingRules.Get(a.config.Cluster.ProjectID, newName).Do()
 
 	if err == nil {
 		return errors.New("Rule " + newName + " already exists")
@@ -121,18 +121,18 @@ func (a *applicationService) getRuleToCopy(address NamedAddress, retries int) (*
 		}
 	}
 
-	return nil, errors.New("No existing rule for namespace found")
+	return nil, errors.New("no existing rule for namespace found")
 }
 
 func (a *applicationService) findRule(address NamedAddress) (*compute.ForwardingRule, error) {
-	rules, err := a.computeService.GlobalForwardingRules.List(projectId).Do()
+	rules, err := a.computeService.GlobalForwardingRules.List(a.config.Cluster.ProjectID).Do()
 
 	if err != nil {
 		return nil, err
 	}
 
 	for _, rule := range rules.Items {
-		if strings.Contains(rule.Name, kb8Namespace) && strings.Contains(rule.PortRange, address.port) {
+		if strings.Contains(rule.Name, a.prefixedNamespace) && strings.Contains(rule.PortRange, address.port) {
 			return rule, nil
 		}
 	}
@@ -143,22 +143,22 @@ func (a *applicationService) findRule(address NamedAddress) (*compute.Forwarding
 	return nil, nil
 }
 
-func (a *applicationService) getIpAddressForNewRule(address string) (*compute.Address, error) {
-	ipAddress, err := a.getIpAddressByName(address)
+func (a *applicationService) getIPAddressForNewRule(address string) (*compute.Address, error) {
+	ipAddress, err := a.getIPAddressByName(address)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if ipAddress.Status == "IN USE" {
-		return nil, errors.New("Ip Address already used")
+		return nil, errors.New("ip Address already used")
 	}
 
 	return ipAddress, nil
 }
 
-func (a *applicationService) getIpAddressByName(address string) (*compute.Address, error) {
-	ips, err := a.computeService.GlobalAddresses.List(projectId).Do()
+func (a *applicationService) getIPAddressByName(address string) (*compute.Address, error) {
+	ips, err := a.computeService.GlobalAddresses.List(a.config.Cluster.ProjectID).Do()
 
 	if err != nil {
 		return nil, err
@@ -170,5 +170,5 @@ func (a *applicationService) getIpAddressByName(address string) (*compute.Addres
 		}
 	}
 
-	return nil, errors.New("Ip Address not found")
+	return nil, errors.New("ip Address not found")
 }
