@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 	"kube-helper/model"
 	"testing"
-
-	"kube-helper/_mocks"
 
 	testingKube "kube-helper/testing"
 
@@ -249,7 +248,7 @@ apiVersion: v1
 metadata:
   name: dummy`
 
-	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}, "foobar"), "Kind Pod is not supported.")
+	assert.EqualError(t, kindService.ApplyKind("foobar", []string{kind}, "foobar"), "kind Pod is not supported")
 }
 
 func TestKindService_ApplyKindInsertWithError(t *testing.T) {

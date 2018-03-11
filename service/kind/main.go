@@ -1,7 +1,6 @@
 package kind
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -305,7 +304,7 @@ func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, 
 	case "PersistentVolumeClaim":
 		return k.upsertPersistentVolumeClaim(kubernetesNamespace, fileContent.(*core_v1.PersistentVolumeClaim))
 	default:
-		return errors.New(fmt.Sprintf("Kind %s is not supported.", fileContent.GetObjectKind().GroupVersionKind().Kind))
+		return fmt.Errorf("kind %s is not supported", fileContent.GetObjectKind().GroupVersionKind().Kind)
 	}
 }
 

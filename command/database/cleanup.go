@@ -18,7 +18,7 @@ func CmdCleanup(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	sqlService, err := serviceBuilder.GetSqlService()
+	sqlService, err := serviceBuilder.GetSQLService()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)

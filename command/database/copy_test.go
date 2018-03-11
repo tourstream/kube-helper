@@ -57,7 +57,7 @@ func TestCmdCopyWithWrongSqlService(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
+	serviceBuilderMock.On("GetSQLService").Return(nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -96,8 +96,8 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 
 	defer func() {
 		cli.OsExiter = oldHandler
@@ -191,8 +191,8 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 	storageServiceMock.On("DeleteFile", "foobar-testingtmp.sql.gz").Return(nil)
 	storageServiceMock.On("DeleteFile", "foobar-testing.sql.gz").Return(nil)
 
-	sqlService, err := oldServiceBuilder.GetSqlService()
-	serviceBuilderMock.On("GetSqlService").Return(sqlService, err)
+	sqlService, err := oldServiceBuilder.GetSQLService()
+	serviceBuilderMock.On("GetSQLService").Return(sqlService, err)
 	serviceBuilderMock.On("GetStorageService", "foobar-testing").Return(storageServiceMock, nil)
 
 	oldClock := clock
