@@ -1,11 +1,15 @@
-package service
+package app
 
 import (
-	"google.golang.org/api/compute/v1"
-	"strings"
-	"fmt"
-	"time"
 	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"net/http"
+
+	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 )
 
 func (a *applicationService) addNewRulesToLoadBalancer(addresses string) error {
@@ -97,8 +101,7 @@ func (a *applicationService) newRulePreCheck(newName string) error {
 	if err == nil {
 		return errors.New("Rule " + newName + " already exists")
 	}
-
-	if !strings.Contains(err.Error(), "Error 404") {
+	if err.(*googleapi.Error).Code != http.StatusNotFound {
 		return err
 	}
 

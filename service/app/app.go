@@ -1,4 +1,4 @@
-package service
+package app
 
 import (
 	"errors"
@@ -10,20 +10,28 @@ import (
 	"os"
 	"strings"
 
+	"io"
+
+	"kube-helper/service/builder"
+
+	"kube-helper/service/kind"
+
 	"github.com/spf13/afero"
 	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/servicemanagement/v1"
 	"k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
+	utilClock "k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 )
 
-var serviceBuilder BuilderInterface = new(Builder)
-var clock util_clock.Clock = new(util_clock.RealClock)
+var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
+var clock utilClock.Clock = new(utilClock.RealClock)
 var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
+var writer io.Writer = os.Stdout
+var kindServiceCreator = kind.NewKind
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
@@ -43,9 +51,34 @@ type applicationService struct {
 	serviceManagement *servicemanagement.APIService
 }
 
-func NewApplicationService(client kubernetes.Interface, namespace string, config loader.Config, dnsService *dns.Service, computeService *compute_v1.Service, serviceManagement *servicemanagement.APIService) ApplicationServiceInterface {
+func NewApplicationService(namespace string, config loader.Config) (ApplicationServiceInterface, error) {
 	a := new(applicationService)
-	a.clientSet = client
+
+	clientSet, err := serviceBuilder.GetClientSet(config)
+
+	if err != nil {
+		return nil, err
+	}
+
+	dnsService, err := serviceBuilder.GetDNSService()
+
+	if err != nil {
+		return nil, err
+	}
+
+	computeService, err := serviceBuilder.GetComputeService()
+
+	if err != nil {
+		return nil, err
+	}
+
+	serviceManagement, err := serviceBuilder.GetServiceManagementService()
+
+	if err != nil {
+		return nil, err
+	}
+
+	a.clientSet = clientSet
 	a.prefixedNamespace = namespace
 	if config.Namespace.Prefix != "" {
 		a.prefixedNamespace = config.Namespace.Prefix + "-" + namespace
@@ -55,10 +88,10 @@ func NewApplicationService(client kubernetes.Interface, namespace string, config
 	a.dnsService = dnsService
 	a.computeService = computeService
 	a.serviceManagement = serviceManagement
-	return a
+	return a, nil
 }
 
-const namespaceNameFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+const namespaceNameFmt = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
 
 var namespaceNameRegexp = regexp.MustCompile("^" + namespaceNameFmt + "$")
 
@@ -403,7 +436,7 @@ func (a *applicationService) applyFromConfig() error {
 		return err
 	}
 
-	kindService := serviceBuilder.GetKindService(a.clientSet, imageService, a.config)
+	kindService := kindServiceCreator(a.clientSet, imageService, a.config)
 
 	err = replaceVariablesInFile(afero.NewOsFs(), a.config.KubernetesConfigFilepath, func(splitLines []string) error {
 		return kindService.ApplyKind(a.prefixedNamespace, splitLines, a.namespace)

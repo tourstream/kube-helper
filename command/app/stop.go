@@ -13,13 +13,7 @@ func CmdShutdown(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	clientSet, err := serviceBuilder.GetClientSet(configContainer)
-
-	if err != nil {
-		return cli.NewExitError(err.Error(), 1)
-	}
-
-	appService, err := serviceBuilder.GetApplicationService(clientSet, kubernetesNamespace, configContainer)
+	appService, err := applicationServiceCreator(kubernetesNamespace, configContainer)
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)

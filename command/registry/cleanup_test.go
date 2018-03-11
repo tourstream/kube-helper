@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"testing"
 
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
+	"kube-helper/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
-	"kube-helper/model"
 )
 
 func TestCmdCleanupWithWrongConfig(t *testing.T) {
@@ -59,7 +60,7 @@ func TestCmdCleanupWithErrorForImageService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -101,14 +102,13 @@ func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
-
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(nil, errors.New("explode"))
 
@@ -148,7 +148,7 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
@@ -202,7 +202,7 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
@@ -269,7 +269,7 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 
@@ -336,7 +336,7 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	imagesLoaderMock := new(_mocks.ImagesInterface)
 

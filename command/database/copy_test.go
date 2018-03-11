@@ -54,7 +54,7 @@ func TestCmdCopyWithWrongSqlService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(loader.Config{}, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
@@ -93,7 +93,7 @@ func TestCmdCommandWithExistingDatabase(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -163,7 +163,7 @@ func TestCmdCommandWithFailureToGetStorageService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	appFS := afero.NewMemMapFs()

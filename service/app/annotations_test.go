@@ -1,22 +1,25 @@
-package service
+package app
 
 import (
-	"testing"
-	"github.com/stretchr/testify/assert"
 	"kube-helper/loader"
+	"testing"
 
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"gopkg.in/h2non/gock.v1"
-	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/api/core/v1"
-	"errors"
+	"github.com/stretchr/testify/assert"
+
+	testingKube "kube-helper/testing"
+
 	"time"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
+
+	"gopkg.in/h2non/gock.v1"
+	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilClock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 func TestAnnotations_HandleIngressAnnotationOnApply(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -25,13 +28,25 @@ func TestAnnotations_HandleIngressAnnotationOnApply(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1,,test-ip:8080"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1,,test-ip:8080"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -41,7 +56,7 @@ func TestAnnotations_HandleIngressAnnotationOnApply(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		assert.NoError(t, appService.HandleIngressAnnotationOnApply())
@@ -51,7 +66,7 @@ func TestAnnotations_HandleIngressAnnotationOnApply(t *testing.T) {
 
 func TestAnnotations_HandleIngressAnnotationOnApply_preSharedCert(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -60,13 +75,25 @@ func TestAnnotations_HandleIngressAnnotationOnApply_preSharedCert(t *testing.T) 
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ""}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ""}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -76,16 +103,14 @@ func TestAnnotations_HandleIngressAnnotationOnApply_preSharedCert(t *testing.T) 
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-
-	assert.Contains(t, err.Error(), "No Certificate to add")
+	assert.Errorf(t, appService.HandleIngressAnnotationOnApply(), "No Certificate to add")
 }
 
 func TestAnnotations_HandleIngressAnnotationOnApply_notSupportedAnnotation(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -94,13 +119,25 @@ func TestAnnotations_HandleIngressAnnotationOnApply_notSupportedAnnotation(t *te
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/foo": "test-ip1,,test-ip:8080"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/foo": "test-ip1,,test-ip:8080"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -110,10 +147,9 @@ func TestAnnotations_HandleIngressAnnotationOnApply_notSupportedAnnotation(t *te
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Contains(t, err.Error(), "not supported Annotation")
+	assert.Errorf(t, appService.HandleIngressAnnotationOnApply(), "not supported Annotation")
 }
 
 func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handlingEmptyConfig(t *testing.T) {
@@ -124,17 +160,28 @@ func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handl
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{{}},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
-		err := appService.HandleIngressAnnotationOnApply()
-		assert.NoError(t, err)
+		assert.NoError(t, appService.HandleIngressAnnotationOnApply())
 	})
 
 	assert.Contains(t, output, "No Annotations to process")
@@ -142,13 +189,24 @@ func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handl
 
 func TestAnnotations_HandleIngressAnnotationOnApply_ReadingConfigAddresses_handlesConfigEmpty(t *testing.T) {
 	config := loader.Config{}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
 
-	fakeClientSet.PrependReactor("list", "ingresses", errorReturnFunc)
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "explode")
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
+
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.ErrorReturnFunc)
+
+	err = appService.HandleIngressAnnotationOnApply()
+	assert.EqualError(t, err, "explode")
 }
 
 func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
@@ -157,15 +215,15 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	projectId = "testing"
 	kb8Namespace = "foobar"
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
-		Reply(404).SetError(errors.New("Error 404"))
+		Reply(404)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-443").
-		Reply(404).SetError(errors.New("Error 404"))
+		Reply(404)
 
 	var newRule = []byte(`{
 	"IPAddress":"127.0.0.1",
@@ -175,7 +233,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -191,7 +249,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 	"portRange":"443-443",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpsProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -211,13 +269,25 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -227,21 +297,20 @@ func TestAnnotations_AddNewRulesToLoadBalancer(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		assert.NoError(t, appService.HandleIngressAnnotationOnApply())
 	})
-
 	assert.Contains(t, output, "Adress {test-ip1 80} added\nAdress {test-ip1 443} added")
 }
 func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 	defer gock.Off()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules").
-		Reply(502).SetError(errors.New("failed"))
+		Reply(502)
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -250,13 +319,25 @@ func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -266,28 +347,28 @@ func TestAnnotations_AddNewRulesToLoadBalancer_FailCreateNewRule(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		err := appService.HandleIngressAnnotationOnApply()
-		assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/forwardingRules?alt=json: failed")
+		assert.EqualError(t, err, "googleapi: got HTTP response code 502 with body: ")
 	})
 
-	assert.Contains(t, output, "Get https://www.googleapis.com/compute/v1/projects/testing/global/forwardingRules?alt=json: failed")
+	assert.Contains(t, output, "googleapi: got HTTP response code 502")
 }
 
 func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 	defer gock.Off()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
-		Reply(404).SetError(errors.New("Error 404"))
+		Reply(404)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-443").
-		Reply(404).SetError(errors.New("Error 404"))
+		Reply(404)
 
 	var newRule = []byte(`{
 	"IPAddress":"127.0.0.1",
@@ -297,7 +378,7 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -305,10 +386,10 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 		Reply(200).
 		JSON(map[string]string{})
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
-		Reply(502).SetError(errors.New("failed"))
+		Reply(502)
 
 	mockGetForwardingRules()
 	mockGetForwardingRules()
@@ -322,13 +403,25 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80,test-ip1:443"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -338,11 +431,10 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
-		err := appService.HandleIngressAnnotationOnApply()
-		assert.Contains(t, err.Error(), "Post https://www.googleapis.com/compute/v1/projects/testing/global/forwardingRules?alt=json: failed")
+		assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 	})
 
 	assert.Contains(t, output, "Adress {test-ip1 80} added")
@@ -351,10 +443,10 @@ func TestAnnotations_AddNewRulesToLoadBalancer_failInsertRule(t *testing.T) {
 func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 	defer gock.Off()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
-		Reply(404).SetError(errors.New("Error 404"))
+		Reply(404)
 
 	var newRule = []byte(`{
 	"IPAddress":"127.0.0.1",
@@ -364,7 +456,7 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 	"portRange":"80-80",
 	"target":"https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/global/forwardingRules").
 		MatchType("json").
@@ -374,10 +466,10 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 
 	mockGetForwardingRules()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
-		Reply(502).SetError(errors.New("failed"))
+		Reply(502)
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -386,13 +478,25 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -402,14 +506,13 @@ func TestAnnotations_CreateNewRule_FailGetAddresses(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
-		err := appService.HandleIngressAnnotationOnApply()
-		assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/addresses?alt=json: failed")
+		assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 	})
 
-	assert.Contains(t, output, "Get https://www.googleapis.com/compute/v1/projects/testing/global/addresses?alt=json: failed")
+	assert.Contains(t, output, "googleapi: got HTTP response code 502 with body:")
 }
 
 func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
@@ -425,13 +528,25 @@ func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip3:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip3:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -441,16 +556,15 @@ func TestAnnotations_CreateNewRule_AddressesInUse(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Contains(t, err.Error(), "Ip Address already used")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "Ip Address already used")
 }
 
 func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
 	defer gock.Off()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
 		Reply(200).
@@ -478,13 +592,25 @@ func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -494,19 +620,19 @@ func TestAnnotations_CreateNewRule_RuleExists(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
+	err = appService.HandleIngressAnnotationOnApply()
 	assert.Contains(t, err.Error(), "Rule test-ip1-fr-80 already exists")
 }
 
 func TestAnnotations_CreateNewRule_RuleLoadError(t *testing.T) {
 	defer gock.Off()
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80").
-		Reply(502).SetError(errors.New("failed"))
+		Reply(502)
 
 	mockGetForwardingRules()
 	mockGetAddresses()
@@ -518,13 +644,25 @@ func TestAnnotations_CreateNewRule_RuleLoadError(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip1:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -534,21 +672,20 @@ func TestAnnotations_CreateNewRule_RuleLoadError(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/forwardingRules/test-ip1-fr-80?alt=json: failed")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 }
 
 func TestAnnotations_GetRuleToCopy_WaitAndNoMatch(t *testing.T) {
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 	defer func() {
 		clock = oldClock
 	}()
 
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	for i := 0; i < 60; i++ {
 		mockGetForwardingRules()
@@ -561,13 +698,25 @@ func TestAnnotations_GetRuleToCopy_WaitAndNoMatch(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "barfoo", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("barfoo", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip6:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip6:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -577,7 +726,7 @@ func TestAnnotations_GetRuleToCopy_WaitAndNoMatch(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		err := appService.HandleIngressAnnotationOnApply()
@@ -589,7 +738,7 @@ func TestAnnotations_GetRuleToCopy_WaitAndNoMatch(t *testing.T) {
 
 func TestAnnotations_GetIpAddressByName_NoMatch(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	mockGetForwardingRules()
 	mockGetAddresses()
 
@@ -600,13 +749,25 @@ func TestAnnotations_GetIpAddressByName_NoMatch(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip6:80"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/named-ip-address": "test-ip6:80"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -616,9 +777,9 @@ func TestAnnotations_GetIpAddressByName_NoMatch(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
+	err = appService.HandleIngressAnnotationOnApply()
 	assert.Contains(t, err.Error(), "Ip Address not found")
 }
 
@@ -634,7 +795,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
@@ -649,13 +810,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -665,7 +838,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		err := appService.HandleIngressAnnotationOnApply()
@@ -683,7 +856,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
@@ -698,13 +871,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ",fti-nl,"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ",fti-nl,"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -714,7 +899,7 @@ func TestAnnotations_AddCertificatesToHttpsProxies_OneEmptyString(t *testing.T) 
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	output := captureOutput(func() {
 		err := appService.HandleIngressAnnotationOnApply()
@@ -730,11 +915,10 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGetCertificate(t *testin
 	projectId = "testing"
 	kb8Namespace = "foobar"
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/sslCertificates/fti-fr").
-		Reply(502).SetError(errors.New("Failed"))
-
+		Reply(502)
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -743,13 +927,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGetCertificate(t *testin
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-fr"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-fr"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -759,16 +955,14 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGetCertificate(t *testin
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/sslCertificates/fti-fr?alt=json: Failed")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 }
 
 func TestAnnotations_AddCertificatesToHttpsProxies_EmptyCertList(t *testing.T) {
 	defer gock.Off()
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -777,13 +971,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies_EmptyCertList(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ",,"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": ",,"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -793,9 +999,9 @@ func TestAnnotations_AddCertificatesToHttpsProxies_EmptyCertList(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
+	err = appService.HandleIngressAnnotationOnApply()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "No Certificate to add")
 }
@@ -809,11 +1015,10 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testin
 		mockGetCertificate(certificate)
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/targetHttpsProxies").
-		Reply(502).SetError(errors.New("failed"))
-
+		Reply(502)
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -822,13 +1027,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testin
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -838,11 +1055,9 @@ func TestAnnotations_AddCertificatesToHttpsProxies_ErrorGettingProxies(t *testin
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/targetHttpsProxies?alt=json: failed")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 }
 
 func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
@@ -857,13 +1072,12 @@ func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 	mockGetHttpsProxies()
 	var certificateList = []byte(`{"sslCertificates":["https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-fr","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/gcloud-fti-group-com","https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/fti-nl"]}`)
 
-
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Post("/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates").
 		MatchType("json").
 		JSON(certificateList). //matches body
-		Reply(502).SetError(errors.New("failed"))
+		Reply(502)
 
 	config := loader.Config{
 		Cluster: loader.Cluster{
@@ -872,13 +1086,25 @@ func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"tourstream.eu/pre-shared-cert": "fti-nl,fti-fr"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -888,11 +1114,9 @@ func TestAnnotations_AddCertificatesToHttpsProxies_AppendFails(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
-	err := appService.HandleIngressAnnotationOnApply()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Post https://www.googleapis.com/compute/v1/projects/testing/targetHttpsProxies/k8s-um-portal-foobar-loadb-target-proxy-6/setSslCertificates?alt=json: failed")
+	assert.EqualError(t, appService.HandleIngressAnnotationOnApply(), "googleapi: got HTTP response code 502 with body: ")
 }
 
 func mockGetAddresses() {
@@ -929,8 +1153,7 @@ func mockGetAddresses() {
   }
 ]}`)
 
-
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
@@ -965,8 +1188,7 @@ func mockGetForwardingRules() {
 		"target": "https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/targetHttpProxies/k8s-um-portal-production-loadb-target-proxy-4"
 	}]}`)
 
-
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/forwardingRules").
 		Reply(200).
@@ -983,8 +1205,7 @@ func mockGetCertificate(name string) {
     "selfLink": "https://www.googleapis.com/compute/v1/projects/e-tourism-suite/global/sslCertificates/` + name + `"
 }`)
 
-
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/sslCertificates/" + name).
 		Reply(200).
@@ -1018,8 +1239,7 @@ func mockGetHttpsProxies() {
 }
 ]}`)
 
-
-	createAuthCall()
+	testingKube.CreateAuthCall()
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/targetHttpsProxies").
 		Reply(200).

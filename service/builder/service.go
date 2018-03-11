@@ -1,4 +1,4 @@
-package service
+package builder
 
 import (
 	"encoding/base64"
@@ -6,6 +6,9 @@ import (
 
 	"errors"
 	"kube-helper/loader"
+
+	"kube-helper/service/bucket"
+	"kube-helper/service/image"
 
 	StorageClient "cloud.google.com/go/storage"
 	"golang.org/x/net/context"
@@ -23,16 +26,14 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-type BuilderInterface interface {
+type ServiceBuilderInterface interface {
 	GetClientSet(config loader.Config) (kubernetes.Interface, error)
 	GetDNSService() (*dns.Service, error)
 	GetSqlService() (*sqladmin.Service, error)
-	GetStorageService(bucket string) (BucketServiceInterface, error)
-	GetClient(scope ...string) (*http.Client, error)
-	GetApplicationService(client kubernetes.Interface, namespace string, config loader.Config) (ApplicationServiceInterface, error)
-	GetImagesService() (ImagesInterface, error)
-	GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface
+	GetStorageService(bucketName string) (bucket.BucketServiceInterface, error)
+	GetImagesService() (image.ImagesInterface, error)
 	GetComputeService() (*compute.Service, error)
+	GetServiceManagementService() (*servicemanagement.APIService, error)
 }
 
 type Builder struct {
@@ -52,7 +53,7 @@ func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, erro
 		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 		config, err := kubeConfig.ClientConfig()
 		if err != nil {
-			return nil, errors.New("Failed loading client config")
+			return nil, errors.New("failed loading client config")
 		}
 		return kubernetes.NewForConfig(config)
 	case "gcp":
@@ -83,7 +84,7 @@ func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, erro
 }
 
 func (h *Builder) getContainerService() (*container.Service, error) {
-	client, err := h.GetClient(container.CloudPlatformScope)
+	client, err := h.getClient(container.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -93,7 +94,7 @@ func (h *Builder) getContainerService() (*container.Service, error) {
 }
 
 func (h *Builder) GetDNSService() (*dns.Service, error) {
-	client, err := h.GetClient(dns.CloudPlatformScope)
+	client, err := h.getClient(dns.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -103,7 +104,7 @@ func (h *Builder) GetDNSService() (*dns.Service, error) {
 }
 
 func (h *Builder) GetSqlService() (*sqladmin.Service, error) {
-	client, err := h.GetClient(sqladmin.CloudPlatformScope)
+	client, err := h.getClient(sqladmin.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -112,8 +113,8 @@ func (h *Builder) GetSqlService() (*sqladmin.Service, error) {
 	return sqladmin.New(client)
 }
 
-func (h *Builder) GetStorageService(bucket string) (BucketServiceInterface, error) {
-	httpClient, err := h.GetClient(storage.CloudPlatformScope)
+func (h *Builder) GetStorageService(bucketName string) (bucket.BucketServiceInterface, error) {
+	httpClient, err := h.getClient(storage.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -131,33 +132,10 @@ func (h *Builder) GetStorageService(bucket string) (BucketServiceInterface, erro
 		return nil, err
 	}
 
-	return NewBucketService(bucket, httpClient, storageService, storageClient), nil
+	return bucket.NewBucketService(bucketName, httpClient, storageService, storageClient), nil
 }
 
-func (h *Builder) GetApplicationService(client kubernetes.Interface, namespace string, config loader.Config) (ApplicationServiceInterface, error) {
-
-	dnsService, err := h.GetDNSService()
-
-	if err != nil {
-		return nil, err
-	}
-
-	computeService, err := h.GetComputeService()
-
-	if err != nil {
-		return nil, err
-	}
-
-	serviceManagementService, err := h.getServiceManagementService()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return NewApplicationService(client, namespace, config, dnsService, computeService, serviceManagementService), nil
-}
-
-func (h *Builder) GetClient(scope ...string) (*http.Client, error) {
+func (h *Builder) getClient(scope ...string) (*http.Client, error) {
 	ctx := context.Background()
 
 	return google.DefaultClient(ctx, scope...)
@@ -168,7 +146,7 @@ func (h *Builder) getStorageClient() (*StorageClient.Client, error) {
 }
 
 func (h *Builder) GetComputeService() (*compute.Service, error) {
-	httpClient, err := h.GetClient(compute.CloudPlatformScope)
+	httpClient, err := h.getClient(compute.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -177,8 +155,8 @@ func (h *Builder) GetComputeService() (*compute.Service, error) {
 	return compute.New(httpClient)
 }
 
-func (h *Builder) getServiceManagementService() (*servicemanagement.APIService, error) {
-	httpClient, err := h.GetClient(compute.CloudPlatformScope)
+func (h *Builder) GetServiceManagementService() (*servicemanagement.APIService, error) {
+	httpClient, err := h.getClient(compute.CloudPlatformScope)
 
 	if err != nil {
 		return nil, err
@@ -187,18 +165,12 @@ func (h *Builder) getServiceManagementService() (*servicemanagement.APIService, 
 	return servicemanagement.New(httpClient)
 }
 
-func (h *Builder) GetImagesService() (ImagesInterface, error) {
-	imageService, err := newImagesService()
+func (h *Builder) GetImagesService() (image.ImagesInterface, error) {
+	imageService, err := image.NewImagesService()
 
 	if err != nil {
 		return nil, err
 	}
 
 	return imageService, nil
-}
-
-func (h *Builder) GetKindService(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) KindInterface {
-	kindService := newKind(client, imagesService, config)
-
-	return kindService
 }

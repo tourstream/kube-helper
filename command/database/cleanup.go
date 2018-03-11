@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"kube-helper/util"
+
 	"github.com/urfave/cli"
 	"google.golang.org/api/sqladmin/v1beta4"
-	"kube-helper/util"
 )
 
 func CmdCleanup(c *cli.Context) error {
@@ -41,7 +42,7 @@ func CmdCleanup(c *cli.Context) error {
 
 		branch := strings.TrimPrefix(database, configContainer.Database.PrefixBranchDatabase)
 
-		if util.InArray(branches, branch) == false {
+		if util.Contains(branches, branch) == false {
 			operation, err := sqlService.Databases.Delete(configContainer.Cluster.ProjectID, configContainer.Database.Instance, database).Do()
 			if err != nil {
 				return cli.NewExitError(err.Error(), 1)
@@ -60,11 +61,12 @@ func CmdCleanup(c *cli.Context) error {
 
 func getDatabases(sqlService *sqladmin.Service, projectID string, instance string) ([]string, error) {
 	list, err := sqlService.Databases.List(projectID, instance).Do()
-	databases := []string{}
 
 	if err != nil {
 		return nil, err
 	}
+
+	var databases []string
 
 	for _, database := range list.Items {
 		databases = append(databases, database.Name)

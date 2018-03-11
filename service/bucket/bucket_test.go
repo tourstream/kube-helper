@@ -1,12 +1,18 @@
-package service
+package bucket
 
 import (
 	"bytes"
 	"errors"
+	testingKube "kube-helper/testing"
 	"testing"
+
+	StorageClient "cloud.google.com/go/storage"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/storage/v1"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -14,7 +20,7 @@ func TestBucketService_DeleteFile(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Delete("/storage/v1/b/foobar/o/foobar_file").
@@ -30,7 +36,7 @@ func TestBucketService_RemoveBucketACL(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Delete("/storage/v1/b/foobar/acl/user-service_account_test").
@@ -63,7 +69,7 @@ func TestBucketService_SetBucketACL(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -99,7 +105,7 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -131,7 +137,7 @@ func TestBucketService_DownLoadFile(t *testing.T) {
 func TestBucketService_DownLoadFileWithErrorForSetAcl(t *testing.T) {
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -166,7 +172,7 @@ func TestBucketService_DownLoadFileWithErrorToGetObjectInformation(t *testing.T)
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -206,7 +212,7 @@ func TestBucketService_DownLoadFileWithDownloadError(t *testing.T) {
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/storage/v1/b/foobar/acl").
@@ -242,7 +248,7 @@ func TestBucketService_UploadFile(t *testing.T) {
 	defer func() { fileSystem = oldFileSystem }()
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.BodyTypes = append(gock.BodyTypes, "multipart/related")
 
@@ -277,8 +283,19 @@ func TestBucketService_UploadFileWithNotExistingFile(t *testing.T) {
 }
 
 func getService(t *testing.T) BucketServiceInterface {
-	bucketService, err := new(Builder).GetStorageService("foobar")
+	ctx := context.Background()
+
+	httpClient, err := google.DefaultClient(ctx, storage.CloudPlatformScope)
+
 	assert.NoError(t, err)
 
-	return bucketService
+	storageService, err := storage.New(httpClient)
+
+	assert.NoError(t, err)
+
+	storageClient, err := StorageClient.NewClient(context.Background())
+
+	assert.NoError(t, err)
+
+	return NewBucketService("foobar", httpClient, storageService, storageClient)
 }

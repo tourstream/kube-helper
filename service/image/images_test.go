@@ -1,9 +1,10 @@
-package service
+package image
 
 import (
 	"errors"
 	"kube-helper/loader"
 	"kube-helper/model"
+	testingKube "kube-helper/testing"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,11 +13,11 @@ import (
 
 func TestImages_HasTag(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -32,11 +33,11 @@ func TestImages_HasTag(t *testing.T) {
 
 func TestImages_HasTagWithWithError(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -51,11 +52,11 @@ func TestImages_HasTagWithWithError(t *testing.T) {
 
 func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -71,7 +72,7 @@ func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 func TestImages_List(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -133,7 +134,7 @@ func TestImages_List(t *testing.T) {
 	"tags": ["1.08", "1.09", "1.10", "latest", "test-249c4560aac8"]
 }
 	`
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -233,13 +234,13 @@ func TestImages_List(t *testing.T) {
 
 func TestImages_ListWithNoValidJson(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
 	response := `No Valid JSON
 	`
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -254,11 +255,11 @@ func TestImages_ListWithNoValidJson(t *testing.T) {
 
 func TestImages_ListWithErrorToGetList(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -273,11 +274,11 @@ func TestImages_ListWithErrorToGetList(t *testing.T) {
 
 func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -294,11 +295,11 @@ func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
 func TestImages_DeleteManifest(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -311,11 +312,11 @@ func TestImages_DeleteManifest(t *testing.T) {
 
 func TestImages_DeleteManifestWithError(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -328,11 +329,11 @@ func TestImages_DeleteManifestWithError(t *testing.T) {
 
 func TestImages_Untag(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
