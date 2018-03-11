@@ -4,20 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	"k8s.io/client-go/kubernetes/fake"
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 )
 
 func TestCmdShutdownWithWrongConf(t *testing.T) {
 	helperTestCmdHasWrongConfigReturned(t, CmdShutdown, []string{"shutdown", "-c", "never.yml", "foobar"})
-}
-
-func TestCmdShutdownWithErrorForClientSet(t *testing.T) {
-	helperTestCmdlWithErrorForClientSet(t, CmdShutdown, []string{"shutdown", "-c", "never.yml", "foorbar"})
 }
 
 func TestCmdShutdownWithErrorForApplicationService(t *testing.T) {
@@ -37,20 +33,14 @@ func TestCmdShutdownWithErrorForApplicationService(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := new(fake.Clientset)
-
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -81,23 +71,18 @@ func TestCmdShutdownWithErrorForDeleteNamespace(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
 
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 
 	fakeApplicationService.On("DeleteByNamespace").Return(errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -128,23 +113,18 @@ func TestCmdShutdown(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := new(fake.Clientset)
 	fakeApplicationService := new(_mocks.ApplicationServiceInterface)
 
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(fakeApplicationService, nil)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, fakeApplicationService, nil)
 
 	fakeApplicationService.On("DeleteByNamespace").Return(nil)
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	cli.OsExiter = func(exitCode int) {

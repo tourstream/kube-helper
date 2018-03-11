@@ -3,9 +3,10 @@ package app
 import (
 	"fmt"
 
+	"kube-helper/util"
+
 	"github.com/urfave/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kube-helper/util"
 )
 
 func CmdCleanUp(c *cli.Context) error {
@@ -28,9 +29,7 @@ func CmdCleanUp(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 
-	usedNamespaces := []string{}
-
-	usedNamespaces = append(usedNamespaces, "kube-system", "default")
+	usedNamespaces := []string{"kube-system", "default"}
 
 	for _, branchName := range branches {
 		usedNamespaces = append(usedNamespaces, getNamespace(branchName, false))
@@ -43,11 +42,11 @@ func CmdCleanUp(c *cli.Context) error {
 	}
 
 	for _, namespace := range list.Items {
-		if util.InArray(usedNamespaces, namespace.Name) {
+		if util.Contains(usedNamespaces, namespace.Name) {
 			continue
 		}
 
-		appService, err := serviceBuilder.GetApplicationService(clientSet, namespace.Name, configContainer)
+		appService, err := applicationServiceCreator(namespace.Name, configContainer)
 
 		if err != nil {
 			return cli.NewExitError(err.Error(), 1)

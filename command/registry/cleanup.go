@@ -6,19 +6,20 @@ import (
 	"strings"
 
 	"kube-helper/loader"
-	"kube-helper/service"
 	"kube-helper/util"
 
 	"fmt"
 	"kube-helper/model"
 	"regexp"
 
+	"kube-helper/service/builder"
+
 	"github.com/urfave/cli"
 )
 
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
-var serviceBuilder service.BuilderInterface = new(service.Builder)
+var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
 
 var writer io.Writer = os.Stdout
 
@@ -81,7 +82,7 @@ func CmdCleanup(c *cli.Context) error {
 				branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
 
 				//do not cleanup if branch exists
-				if util.InArray(branches, branchName) {
+				if util.Contains(branches, branchName) {
 					cleanup = false
 					break
 				}

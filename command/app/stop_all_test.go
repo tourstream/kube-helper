@@ -4,15 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	"k8s.io/client-go/kubernetes/fake"
-	testing2 "k8s.io/client-go/testing"
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
-	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	testing2 "k8s.io/client-go/testing"
 )
 
 func TestCmdShutdownAllWithWrongConf(t *testing.T) {
@@ -43,7 +44,7 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -90,7 +91,8 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -100,13 +102,15 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(namespaceList)
 
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, nil, errors.New("explode"))
+
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
 
 	defer func() {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	cli.OsExiter = func(exitCode int) {
@@ -138,7 +142,8 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -150,7 +155,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	appService := new(_mocks.ApplicationServiceInterface)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 
 	appService.On("DeleteByNamespace").Return(errors.New("explode"))
 
@@ -158,6 +163,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	output, errOutput := captureOutput(func() {
@@ -189,7 +195,8 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -201,7 +208,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 	appService := new(_mocks.ApplicationServiceInterface)
 
 	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 
 	appService.On("DeleteByNamespace").Return(errors.New("explode"))
 
@@ -209,6 +216,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 	}()
 
 	output, errOutput := captureOutput(func() {

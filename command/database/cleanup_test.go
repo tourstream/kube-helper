@@ -56,7 +56,7 @@ func TestCmdCleanupWithWrongSqlService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(loader.Config{}, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetSqlService").Return(nil, errors.New("explode"))
@@ -92,7 +92,7 @@ func TestCmdCleanupWithFailureLoadBranches(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -143,7 +143,7 @@ func TestCmdCleanupWithFailureLoadDatabases(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -204,7 +204,7 @@ func TestCmdCleanupWithFailureForDelete(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -297,7 +297,7 @@ func TestCmdCleanupWithFailureDuringWait(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()
@@ -424,7 +424,7 @@ func TestCmdCleanup(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 	serviceBuilder = serviceBuilderMock
 
 	sqlService, err := oldServiceBuilder.GetSqlService()

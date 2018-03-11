@@ -5,13 +5,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+
+	"kube-helper/service/app"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 	"k8s.io/api/core/v1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetNamespace(t *testing.T) {
@@ -71,7 +74,7 @@ func helperTestCmdlWithErrorForClientSet(t *testing.T, Action interface{}, argum
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(_mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -115,5 +118,14 @@ func testNamespace(ns string) v1.Namespace {
 		ObjectMeta: meta_v1.ObjectMeta{
 			Name: ns,
 		},
+	}
+}
+
+func mockNewApplicationService(t *testing.T, expectedNamespace string, expectedConfig loader.Config, serviceMock app.ApplicationServiceInterface, err error) func(namespace string, config loader.Config) (app.ApplicationServiceInterface, error) {
+	return func(namespace string, config loader.Config) (app.ApplicationServiceInterface, error) {
+		assert.Equal(t, expectedConfig, config)
+		assert.Equal(t, expectedNamespace, namespace)
+
+		return serviceMock, err
 	}
 }

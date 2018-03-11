@@ -1,4 +1,4 @@
-package service
+package kind
 
 import (
 	"errors"
@@ -11,6 +11,8 @@ import (
 	"io"
 	"kube-helper/model"
 	"os"
+
+	"kube-helper/service/image"
 
 	apps_v1beta2 "k8s.io/api/apps/v1beta2"
 	batch_v1beta1 "k8s.io/api/batch/v1beta1"
@@ -43,14 +45,20 @@ type usedKind struct {
 type kindService struct {
 	decoder       runtime.Decoder
 	clientSet     kubernetes.Interface
-	imagesService ImagesInterface
+	imagesService image.ImagesInterface
 	config        loader.Config
 	usedKind      usedKind
 }
 
-func newKind(client kubernetes.Interface, imagesService ImagesInterface, config loader.Config) *kindService {
-	k := kindService{clientsetscheme.Codecs.UniversalDeserializer(), client, imagesService, config, usedKind{}}
-	return &k
+func NewKind(client kubernetes.Interface, imagesService image.ImagesInterface, config loader.Config) KindInterface {
+	k := new(kindService)
+	k.clientSet = client
+	k.imagesService = imagesService
+	k.config = config
+	k.usedKind = usedKind{}
+	k.decoder = clientsetscheme.Codecs.UniversalDeserializer()
+
+	return k
 }
 
 func (k *kindService) CleanupKind(kubernetesNamespace string) error {
@@ -101,7 +109,7 @@ func (k *kindService) cleanupSecret(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		if strings.HasPrefix(listEntry.Name, "default-token-") {
@@ -128,7 +136,7 @@ func (k *kindService) cleanupConfigMaps(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -153,7 +161,7 @@ func (k *kindService) cleanupServices(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -178,7 +186,7 @@ func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -203,7 +211,7 @@ func (k *kindService) cleanupIngresses(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -229,7 +237,7 @@ func (k *kindService) cleanupCronjobs(kubernetesNamespace string) error {
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -254,7 +262,7 @@ func (k *kindService) cleanupPersistentVolumeClaims(kubernetesNamespace string) 
 		return err
 	}
 
-	names := []string{}
+	var names []string
 
 	for _, listEntry := range list.Items {
 		names = append(names, listEntry.Name)
@@ -613,7 +621,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []core_v1
 
 func getVersionForLatestTag(latestTag string, images *model.TagCollection) string {
 	for _, manifest := range images.Manifests {
-		if util.InArray(manifest.Tags, latestTag) {
+		if util.Contains(manifest.Tags, latestTag) {
 			for _, tag := range manifest.Tags {
 				if tag != latestTag && tag != "latest" {
 					return tag
@@ -630,7 +638,8 @@ func difference(a, b []string) []string {
 	for _, x := range b {
 		mb[x] = true
 	}
-	ab := []string{}
+
+	var ab []string
 	for _, x := range a {
 		if _, ok := mb[x]; !ok {
 			ab = append(ab, x)
@@ -638,4 +647,3 @@ func difference(a, b []string) []string {
 	}
 	return ab
 }
-

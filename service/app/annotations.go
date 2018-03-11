@@ -1,12 +1,13 @@
-package service
+package app
 
 import (
-	"strings"
-	"google.golang.org/api/compute/v1"
-	"fmt"
 	"errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"fmt"
+	"strings"
+
+	"google.golang.org/api/compute/v1"
 	"k8s.io/api/extensions/v1beta1"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type NamedAddress struct {
@@ -16,7 +17,6 @@ type NamedAddress struct {
 
 var projectId string
 var kb8Namespace string
-
 
 func (a *applicationService) HandleIngressAnnotationOnApply() error {
 	projectId = a.config.Cluster.ProjectID
@@ -162,7 +162,7 @@ func (a *applicationService) appendCertificates(proxy *compute.TargetHttpsProxy,
 	return err
 }
 
-func (a *applicationService) addToList(list []string, value string) ([]string) {
+func (a *applicationService) addToList(list []string, value string) []string {
 	for _, entry := range list {
 		if entry == value {
 			return list

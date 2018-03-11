@@ -1,4 +1,4 @@
-package service
+package image
 
 import (
 	"encoding/json"
@@ -10,6 +10,9 @@ import (
 	"kube-helper/loader"
 	"kube-helper/model"
 	"sort"
+
+	"golang.org/x/net/context"
+	"golang.org/x/oauth2/google"
 )
 
 type ImagesInterface interface {
@@ -25,8 +28,9 @@ type images struct {
 
 const manifestPath = "https://%s/v2/%s/%s/manifests/%s"
 
-func newImagesService() (*images, error) {
-	client, err := new(Builder).GetClient()
+func NewImagesService() (*images, error) {
+	ctx := context.Background()
+	client, err := google.DefaultClient(ctx)
 
 	if err != nil {
 		return nil, err

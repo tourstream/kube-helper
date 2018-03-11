@@ -4,20 +4,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
-	"k8s.io/client-go/kubernetes/fake"
+	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 )
 
 func TestCmdHasNamespaceWithWrongConf(t *testing.T) {
 	helperTestCmdHasWrongConfigReturned(t, CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
-}
-
-func TestCmdHasNamespaceWithErrorForClientSet(t *testing.T) {
-	helperTestCmdlWithErrorForClientSet(t, CmdHasNamespace, []string{"has-namesapce", "-c", "never.yml", "foorbar"})
 }
 
 func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
@@ -34,30 +30,22 @@ func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := fake.NewSimpleClientset()
-
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(nil, errors.New("explode"))
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, nil, errors.New("explode"))
 
 	oldHandler := cli.OsExiter
 	cli.OsExiter = func(exitCode int) {
 		assert.Equal(t, 1, exitCode)
 	}
 
-
-
 	defer func() {
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 	}()
 
-	output,errOutput := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
 	})
 
@@ -80,18 +68,13 @@ func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := fake.NewSimpleClientset()
 	appService := new(_mocks.ApplicationServiceInterface)
 
-	appService.On("HasNamespace").Return(false)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+	appService.On("HasNamespace").Return(false)
 
 	oldHandler := cli.OsExiter
 	cli.OsExiter = func(exitCode int) {
@@ -99,12 +82,12 @@ func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 	}
 
 	defer func() {
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 	}()
 
-	output,errOutput := captureOutput(func() {
+	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdHasNamespace, []string{"has-namespace", "-c", "never.yml", "foobar"})
 	})
 
@@ -128,18 +111,13 @@ func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	oldApplicationServiceCreator := applicationServiceCreator
 
-	serviceBuilder = serviceBuilderMock
-
-	fakeClientSet := fake.NewSimpleClientset()
 	appService := new(_mocks.ApplicationServiceInterface)
 
-	appService.On("HasNamespace").Return(true)
+	applicationServiceCreator = mockNewApplicationService(t, "foobar", config, appService, nil)
 
-	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
-	serviceBuilderMock.On("GetApplicationService", fakeClientSet, "foobar", config).Return(appService, nil)
+	appService.On("HasNamespace").Return(true)
 
 	oldHandler := cli.OsExiter
 	cli.OsExiter = func(exitCode int) {
@@ -147,7 +125,7 @@ func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 	}
 
 	defer func() {
-		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
 		cli.OsExiter = oldHandler
 		configLoader = oldConfigLoader
 	}()

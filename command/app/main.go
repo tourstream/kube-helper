@@ -5,14 +5,16 @@ import (
 	"os"
 
 	"kube-helper/loader"
-	"kube-helper/service"
+	"kube-helper/service/app"
+	"kube-helper/service/builder"
 	"strings"
 )
 
 var writer io.Writer = os.Stdout
-var serviceBuilder service.BuilderInterface = new(service.Builder)
+var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
 var configLoader loader.ConfigLoaderInterface = new(loader.Config)
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
+var applicationServiceCreator = app.NewApplicationService
 
 func getNamespace(branchName string, isProdution bool) string {
 	namespace := strings.ToLower(branchName)

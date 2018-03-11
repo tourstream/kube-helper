@@ -3,9 +3,10 @@ package app
 import (
 	"fmt"
 
+	"strings"
+
 	"github.com/urfave/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 )
 
 func CmdShutdownAll(c *cli.Context) error {
@@ -33,7 +34,7 @@ func CmdShutdownAll(c *cli.Context) error {
 			continue
 		}
 
-		appService, err := serviceBuilder.GetApplicationService(clientSet, strings.TrimPrefix(namespace.Name, configContainer.Namespace.Prefix + "-"), configContainer)
+		appService, err := applicationServiceCreator(strings.TrimPrefix(namespace.Name, configContainer.Namespace.Prefix+"-"), configContainer)
 
 		if err != nil {
 			return cli.NewExitError(err.Error(), 1)
