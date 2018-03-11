@@ -28,6 +28,8 @@ type images struct {
 
 const manifestPath = "https://%s/v2/%s/%s/manifests/%s"
 
+// NewImagesService creates a new imageService which implements the ImagesInterface
+// it uses a google default client for calling the google container registry related to the image
 func NewImagesService() (ImagesInterface, error) {
 	ctx := context.Background()
 	client, err := google.DefaultClient(ctx)
