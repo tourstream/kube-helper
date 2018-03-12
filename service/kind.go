@@ -12,7 +12,7 @@ import (
 	"kube-helper/model"
 	"os"
 
-	apps_v1beta2 "k8s.io/api/apps/v1beta2"
+	apps_v1beta2 "k8s.io/api/apps/v1"
 	batch_v1beta1 "k8s.io/api/batch/v1beta1"
 	core_v1 "k8s.io/api/core/v1"
 	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -172,7 +172,7 @@ func (k *kindService) cleanupServices(kubernetesNamespace string) error {
 }
 
 func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
-	list, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
+	list, err := k.clientSet.AppsV1().Deployments(kubernetesNamespace).List(meta_v1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
 	}
 
 	for _, name := range difference(names, k.usedKind.deployment) {
-		err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
+		err = k.clientSet.AppsV1().Deployments(kubernetesNamespace).Delete(name, &meta_v1.DeleteOptions{})
 		if err != nil {
 			return err
 		}
@@ -379,10 +379,10 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *a
 		}
 	}
 
-	_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
+	_, err := k.clientSet.AppsV1().Deployments(kubernetesNamespace).Get(deployment.Name, meta_v1.GetOptions{})
 
 	if err != nil {
-		_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Create(deployment)
+		_, err := k.clientSet.AppsV1().Deployments(kubernetesNamespace).Create(deployment)
 
 		if err != nil {
 			return err
@@ -395,7 +395,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *a
 		return nil
 	}
 
-	_, err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Update(deployment)
+	_, err = k.clientSet.AppsV1().Deployments(kubernetesNamespace).Update(deployment)
 
 	if err != nil {
 		return err
@@ -638,4 +638,3 @@ func difference(a, b []string) []string {
 	}
 	return ab
 }
-

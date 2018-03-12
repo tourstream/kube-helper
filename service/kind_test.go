@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	apps_v1beta2 "k8s.io/api/apps/v1beta2"
+	apps_v1beta2 "k8s.io/api/apps/v1"
 	batch_v1beta1 "k8s.io/api/batch/v1beta1"
 	core_v1 "k8s.io/api/core/v1"
 	extensions_v1beta1 "k8s.io/api/extensions/v1beta1"
