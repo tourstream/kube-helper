@@ -138,12 +138,12 @@ metadata:
   name: dummy`
 
 var deployment = `kind: Deployment
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 metadata:
   name: dummy`
 
 var deploymentWithAnnotation = `kind: Deployment
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 metadata:
   name: dummy
   annotations:
