@@ -42,4 +42,4 @@ To generate mocks use the following tool
 
 Example command to generate mocks for e.g. command folder
 
-    mockery -dir service -name ApplicationServiceInterface -output _mocks -outpkg _mocks
+    mockery -dir service/app -name ApplicationServiceInterface
