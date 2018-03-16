@@ -40,47 +40,57 @@ type Builder struct {
 }
 
 func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, error) {
+
+	switch clusterType := config.Cluster.Type; clusterType {
+	case "local":
+		return h.getClientSetForLocal()
+	case "gcp":
+		fallthrough
+	default:
+		return h.getClientSetForGoogleCloudPlatform(config)
+	}
+}
+
+func (h *Builder) getClientSetForGoogleCloudPlatform(config loader.Config) (kubernetes.Interface, error) {
+
 	cService, err := h.getContainerService()
 
 	if err != nil {
 		return nil, err
 	}
 
-	switch clusterType := config.Cluster.Type; clusterType {
-	case "local":
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		configOverrides := &clientcmd.ConfigOverrides{}
-		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
-		config, err := kubeConfig.ClientConfig()
-		if err != nil {
-			return nil, errors.New("failed loading client config")
-		}
-		return kubernetes.NewForConfig(config)
-	case "gcp":
-		fallthrough
-	default:
-		cluster, err := cService.Projects.Zones.Clusters.Get(config.Cluster.ProjectID, config.Cluster.Zone, config.Cluster.ClusterID).Do()
-		if err != nil {
-			return nil, err
-		}
-
-		kubernetesConfig := &rest.Config{
-			Host: "https://" + cluster.Endpoint,
-			AuthProvider: &clientcmdapi.AuthProviderConfig{
-				Name: "gcp",
-			},
-		}
-
-		ca, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
-
-		if err != nil {
-			return nil, err
-		}
-
-		kubernetesConfig.TLSClientConfig.CAData = ca
-
-		return kubernetes.NewForConfig(kubernetesConfig)
+	cluster, err := cService.Projects.Zones.Clusters.Get(config.Cluster.ProjectID, config.Cluster.Zone, config.Cluster.ClusterID).Do()
+	if err != nil {
+		return nil, err
 	}
+
+	kubernetesConfig := &rest.Config{
+		Host: "https://" + cluster.Endpoint,
+		AuthProvider: &clientcmdapi.AuthProviderConfig{
+			Name: "gcp",
+		},
+	}
+
+	ca, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
+
+	if err != nil {
+		return nil, err
+	}
+
+	kubernetesConfig.TLSClientConfig.CAData = ca
+
+	return kubernetes.NewForConfig(kubernetesConfig)
+}
+
+func (h *Builder) getClientSetForLocal() (kubernetes.Interface, error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	configOverrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, errors.New("failed loading client config")
+	}
+	return kubernetes.NewForConfig(config)
 }
 
 func (h *Builder) getContainerService() (*container.Service, error) {
