@@ -39,6 +39,8 @@ type kindService struct {
 	usedKind      usedKind
 }
 
+// NewKind is the constructor method and returns a service which implements the KindInterface
+// the service is used to apply different kubernetes kinds and also do a cleanup depending on the applied ones
 func NewKind(client kubernetes.Interface, imagesService image.ImagesInterface, config loader.Config) KindInterface {
 	k := new(kindService)
 	k.clientSet = client
