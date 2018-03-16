@@ -17,7 +17,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var configLoader = loader.NewConfigLoader()
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
 

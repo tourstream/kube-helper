@@ -31,7 +31,7 @@ func TestCmdShutdownAllWithErrorForGetNamespaceList(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -78,7 +78,7 @@ func TestCmdShutdownAllWithErrorGetApplicationService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -129,7 +129,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespace(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -179,7 +179,7 @@ func TestCmdShutdownAllWithErrorDeleteNamespaceWithPrefix(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 

@@ -8,5 +8,5 @@ import (
 )
 
 var writer io.Writer = os.Stdout
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var configLoader = loader.NewConfigLoader()
 var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)

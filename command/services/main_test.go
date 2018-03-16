@@ -18,7 +18,7 @@ func helperTestCmdHasWrongConfigReturned(t *testing.T, Action interface{}, argum
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -47,7 +47,7 @@ func helperTestCmdlWithErrorForClientSet(t *testing.T, Action interface{}, argum
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 

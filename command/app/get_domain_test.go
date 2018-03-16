@@ -18,7 +18,7 @@ func TestCmdGetDomainWithWrongConf(t *testing.T) {
 
 func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -57,7 +57,7 @@ func TestCmdGetDomainWithErrorForGetApplicationService(t *testing.T) {
 func TestCmdGetDomain(t *testing.T) {
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
