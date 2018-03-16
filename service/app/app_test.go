@@ -1450,7 +1450,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 }
 
 func getBuilderMock(t *testing.T, config loader.Config, imageMock image.ImagesInterface) (builder.ServiceBuilderInterface, *fake.Clientset) {
-	builderService := new(builder.Builder)
+	builderService := builder.NewServiceBuilder()
 
 	dnsService, err := builderService.GetDNSService()
 

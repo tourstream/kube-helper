@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
+var serviceBuilder = builder.NewServiceBuilder()
 var clock utilClock.Clock = new(utilClock.RealClock)
 var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
 var writer io.Writer = os.Stdout

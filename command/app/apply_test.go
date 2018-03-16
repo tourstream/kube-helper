@@ -26,9 +26,11 @@ func TestCmdApplyWithErrorForApplicationService(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -69,9 +71,11 @@ func TestCmdApplyWithErrorForImagesService(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -115,9 +119,11 @@ func TestCmdApplyWithErrorForHasTag(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -166,9 +172,11 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -216,9 +224,11 @@ func TestCmdApplyWithErrorForCreateApplication(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -268,9 +278,11 @@ func TestCmdApply(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)

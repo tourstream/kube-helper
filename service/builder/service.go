@@ -26,6 +26,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
+// ServiceBuilder API
 type ServiceBuilderInterface interface {
 	GetClientSet(config loader.Config) (kubernetes.Interface, error)
 	GetDNSService() (*dns.Service, error)
@@ -36,10 +37,15 @@ type ServiceBuilderInterface interface {
 	GetServiceManagementService() (*servicemanagement.APIService, error)
 }
 
-type Builder struct {
+type builder struct{}
+
+// NewServiceBuilder is the constructor method and returns a service which implements ServiceBuilderInterface
+func NewServiceBuilder() ServiceBuilderInterface {
+	return &builder{}
 }
 
-func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, error) {
+// GetClientSet returns the kubernetes client for local or gcp
+func (h *builder) GetClientSet(config loader.Config) (kubernetes.Interface, error) {
 
 	switch clusterType := config.Cluster.Type; clusterType {
 	case "local":
@@ -51,7 +57,7 @@ func (h *Builder) GetClientSet(config loader.Config) (kubernetes.Interface, erro
 	}
 }
 
-func (h *Builder) getClientSetForGoogleCloudPlatform(config loader.Config) (kubernetes.Interface, error) {
+func (h *builder) getClientSetForGoogleCloudPlatform(config loader.Config) (kubernetes.Interface, error) {
 
 	cService, err := h.getContainerService()
 
@@ -82,7 +88,7 @@ func (h *Builder) getClientSetForGoogleCloudPlatform(config loader.Config) (kube
 	return kubernetes.NewForConfig(kubernetesConfig)
 }
 
-func (h *Builder) getClientSetForLocal() (kubernetes.Interface, error) {
+func (h *builder) getClientSetForLocal() (kubernetes.Interface, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	configOverrides := &clientcmd.ConfigOverrides{}
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
@@ -93,7 +99,7 @@ func (h *Builder) getClientSetForLocal() (kubernetes.Interface, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func (h *Builder) getContainerService() (*container.Service, error) {
+func (h *builder) getContainerService() (*container.Service, error) {
 	client, err := h.getClient(container.CloudPlatformScope)
 
 	if err != nil {
@@ -103,7 +109,8 @@ func (h *Builder) getContainerService() (*container.Service, error) {
 	return container.New(client)
 }
 
-func (h *Builder) GetDNSService() (*dns.Service, error) {
+// GetDNSService returns the DNS API Client for gcp
+func (h *builder) GetDNSService() (*dns.Service, error) {
 	client, err := h.getClient(dns.CloudPlatformScope)
 
 	if err != nil {
@@ -113,7 +120,8 @@ func (h *Builder) GetDNSService() (*dns.Service, error) {
 	return dns.New(client)
 }
 
-func (h *Builder) GetSQLService() (*sqladmin.Service, error) {
+// GetSQLService returns the SQL API Client for gcp
+func (h *builder) GetSQLService() (*sqladmin.Service, error) {
 	client, err := h.getClient(sqladmin.CloudPlatformScope)
 
 	if err != nil {
@@ -123,7 +131,8 @@ func (h *Builder) GetSQLService() (*sqladmin.Service, error) {
 	return sqladmin.New(client)
 }
 
-func (h *Builder) GetStorageService(bucketName string) (bucket.BucketServiceInterface, error) {
+// GetStorageService returns the Storage API Client for gcp
+func (h *builder) GetStorageService(bucketName string) (bucket.BucketServiceInterface, error) {
 	httpClient, err := h.getClient(storage.CloudPlatformScope)
 
 	if err != nil {
@@ -145,17 +154,18 @@ func (h *Builder) GetStorageService(bucketName string) (bucket.BucketServiceInte
 	return bucket.NewBucketService(bucketName, httpClient, storageService, storageClient), nil
 }
 
-func (h *Builder) getClient(scope ...string) (*http.Client, error) {
+func (h *builder) getClient(scope ...string) (*http.Client, error) {
 	ctx := context.Background()
 
 	return google.DefaultClient(ctx, scope...)
 }
 
-func (h *Builder) getStorageClient() (*StorageClient.Client, error) {
+func (h *builder) getStorageClient() (*StorageClient.Client, error) {
 	return StorageClient.NewClient(context.Background())
 }
 
-func (h *Builder) GetComputeService() (*compute.Service, error) {
+// GetComputeService returns the Compute API Client for gcp
+func (h *builder) GetComputeService() (*compute.Service, error) {
 	httpClient, err := h.getClient(compute.CloudPlatformScope)
 
 	if err != nil {
@@ -165,7 +175,8 @@ func (h *Builder) GetComputeService() (*compute.Service, error) {
 	return compute.New(httpClient)
 }
 
-func (h *Builder) GetServiceManagementService() (*servicemanagement.APIService, error) {
+// GetServiceManagementService returns the Service Management API Client for gcp
+func (h *builder) GetServiceManagementService() (*servicemanagement.APIService, error) {
 	httpClient, err := h.getClient(compute.CloudPlatformScope)
 
 	if err != nil {
@@ -175,6 +186,7 @@ func (h *Builder) GetServiceManagementService() (*servicemanagement.APIService, 
 	return servicemanagement.New(httpClient)
 }
 
-func (h *Builder) GetImagesService() (image.ImagesInterface, error) {
+// GetImagesService returns the Image Service
+func (h *builder) GetImagesService() (image.ImagesInterface, error) {
 	return image.NewImagesService()
 }

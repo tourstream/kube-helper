@@ -11,8 +11,15 @@ import (
 func TestConfig_LoadConfigFromPath(t *testing.T) {
 	os.Clearenv()
 	appFS := afero.NewMemMapFs()
+
+	var configFile = `cluster:
+  type: gcp
+  project_id: ###FOO###
+  zone: europe-west1-d
+  cluster_id: ###FOOBAR###`
+
 	// create test files and directories
-	afero.WriteFile(appFS, "src/mainFile", []byte("project_id: ###FOO###\n---\ncluster_id: ###FOOBAR###"), 0644)
+	afero.WriteFile(appFS, "src/mainFile", []byte(configFile), 0644)
 
 	oldFileSystem := fileSystemWrapper
 	fileSystemWrapper = appFS
