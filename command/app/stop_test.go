@@ -26,9 +26,11 @@ func TestCmdShutdownWithErrorForApplicationService(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -64,9 +66,11 @@ func TestCmdShutdownWithErrorForDeleteNamespace(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
@@ -106,9 +110,11 @@ func TestCmdShutdown(t *testing.T) {
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)

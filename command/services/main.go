@@ -9,4 +9,4 @@ import (
 
 var writer io.Writer = os.Stdout
 var configLoader = loader.NewConfigLoader()
-var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
+var serviceBuilder = builder.NewServiceBuilder()

@@ -19,7 +19,7 @@ import (
 
 var configLoader = loader.NewConfigLoader()
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
-var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
+var serviceBuilder = builder.NewServiceBuilder()
 
 var writer io.Writer = os.Stdout
 
