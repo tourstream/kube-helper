@@ -18,12 +18,12 @@ import (
 
 func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, namespaceWithoutPrefix string) error {
 
-	fileContent, _, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
+	fileContent, groupVersionKind, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
 
 	if err != nil {
 		return err
 	}
-	switch fileContent.GetObjectKind().GroupVersionKind().Kind {
+	switch groupVersionKind.Kind {
 	case "Secret":
 		return k.upsertSecrets(kubernetesNamespace, fileContent.(*coreV1.Secret))
 	case "ConfigMap":
@@ -77,15 +77,13 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *coreV1.S
 
 func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *batch.CronJob, namespaceWithoutPrefix string) error {
 
-	if _, ok := cronJob.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(cronJob.Annotations["imageUpdateStrategy"], cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
+	err := k.setImageForContainer(cronJob.Annotations, cronJob.Spec.JobTemplate.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
 
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
-	_, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Get(cronJob.Name, metaV1.GetOptions{})
+	_, err = k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Get(cronJob.Name, metaV1.GetOptions{})
 
 	if err != nil {
 		_, err := k.clientSet.BatchV1beta1().CronJobs(kubernetesNamespace).Create(cronJob)
@@ -115,15 +113,13 @@ func (k *kindService) upsertCronJob(kubernetesNamespace string, cronJob *batch.C
 
 func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *apps.Deployment, namespaceWithoutPrefix string) error {
 
-	if _, ok := deployment.Annotations["imageUpdateStrategy"]; ok {
-		err := k.setImageForContainer(deployment.Annotations["imageUpdateStrategy"], deployment.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
+	err := k.setImageForContainer(deployment.Annotations, deployment.Spec.Template.Spec.Containers, namespaceWithoutPrefix)
 
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
-	_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Get(deployment.Name, metaV1.GetOptions{})
+	_, err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Get(deployment.Name, metaV1.GetOptions{})
 
 	if err != nil {
 		_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Create(deployment)
@@ -175,7 +171,7 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *coreV1.
 	service.Spec.ClusterIP = existingService.Spec.ClusterIP
 
 	if _, ok := service.Annotations["tourstream.eu/ingress"]; ok {
-		//TODO add better check which port is which, for now take the same ports like before so that the backend still works with it
+		// TODO add better check which port is which, for now take the same ports like before so that the backend still works with it
 		service.Spec.Ports = existingService.Spec.Ports
 	}
 
@@ -273,8 +269,8 @@ func (k *kindService) upsertPersistentVolumeClaim(kubernetesNamespace string, pe
 		return nil
 	}
 
-	//TODO check if change and fail in favour of a change in spec
-	//override with existing spec because spec is immutable
+	// TODO check if change and fail in favour of a change in spec
+	// override with existing spec because spec is immutable
 	persistentVolumeClaim.Spec = existingClaim.Spec
 
 	_, err = k.clientSet.CoreV1().PersistentVolumeClaims(kubernetesNamespace).Update(persistentVolumeClaim)
@@ -317,7 +313,11 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *extensi
 	return nil
 }
 
-func (k *kindService) setImageForContainer(strategy string, containers []coreV1.Container, namespaceWithoutPrefix string) error {
+func (k *kindService) setImageForContainer(annotations map[string]string, containers []coreV1.Container, namespaceWithoutPrefix string) error {
+
+	if _, ok := annotations["imageUpdateStrategy"]; !ok {
+		return nil
+	}
 
 	for idx, container := range containers {
 
@@ -331,7 +331,7 @@ func (k *kindService) setImageForContainer(strategy string, containers []coreV1.
 			return err
 		}
 
-		switch strategy {
+		switch annotations["imageUpdateStrategy"] {
 		case "latest-branching":
 
 			latestTag := loader.StagingEnvironment + "-" + namespaceWithoutPrefix + "-latest"

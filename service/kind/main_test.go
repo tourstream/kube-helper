@@ -364,7 +364,7 @@ func TestKindService_SetImageForContainer(t *testing.T) {
 			{Image: "gcr.io/path/app"},
 		}
 
-		kindService.setImageForContainer("latest-branching", containers, entry.namespace)
+		kindService.setImageForContainer(map[string]string{"imageUpdateStrategy": "latest-branching"}, containers, entry.namespace)
 
 		assert.Equal(t, entry.imagePath, containers[0].Image)
 	}
