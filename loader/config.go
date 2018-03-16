@@ -4,16 +4,21 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v2"
 	"gopkg.in/go-playground/validator.v9"
+	"gopkg.in/yaml.v2"
 )
 
-const StagingEnvironment = "staging"
-const ProductionEnvironment = "production"
+const (
+	// StagingEnvironment is used to apply a namespace
+	StagingEnvironment = "staging"
+	// ProductionEnvironment is used to apply a namespace
+	ProductionEnvironment = "production"
+)
 
 var validate *validator.Validate
 
-type ConfigLoaderInterface interface {
+// ConfigLoader API
+type ConfigLoader interface {
 	LoadConfigFromPath(filepath string) (Config, error)
 }
 
@@ -22,11 +27,11 @@ type Cleanup struct {
 }
 
 type DNSConfig struct {
-	ProjectID    string `yaml:"project_id"`
-	ManagedZone  string `yaml:"managed_zone"`
-	DomainSuffix string `yaml:"domain_suffix"`
-	BaseDomain   string `yaml:"base_domain"`
-	DomainSpacer string `yaml:"domain_spacer"`
+	ProjectID    string   `yaml:"project_id"`
+	ManagedZone  string   `yaml:"managed_zone"`
+	DomainSuffix string   `yaml:"domain_suffix"`
+	BaseDomain   string   `yaml:"base_domain"`
+	DomainSpacer string   `yaml:"domain_spacer"`
 	CNameSuffix  []string `yaml:"cname_suffix"`
 }
 
@@ -51,24 +56,21 @@ type Endpoints struct {
 }
 
 type Cluster struct {
-	Type         string
-	ProjectID    string `yaml:"project_id" validate:"required"`
-	ClusterID    string `yaml:"cluster_id" validate:"required"`
-	Zone         string
-	AlphaSupport bool `yaml:"alpha_support"`
+	Type      string
+	ProjectID string `yaml:"project_id" validate:"required"`
+	ClusterID string `yaml:"cluster_id" validate:"required"`
+	Zone      string
 }
 
 type Namespace struct {
 	Prefix string
 }
 
+// Config for the kube-helper
 type Config struct {
 	KubernetesConfigFilepath string `yaml:"kubernetes_config_filepath"`
-	ProjectID                string `yaml:"project_id"`
-	ClusterID                string `yaml:"cluster_id"`
 	Endpoints                Endpoints
 	Cluster                  Cluster
-	Zone                     string
 	Bitbucket                Bitbucket
 	Cleanup                  Cleanup
 	DNS                      DNSConfig `yaml:"dns"`
@@ -78,19 +80,20 @@ type Config struct {
 
 var fileSystemWrapper = afero.NewOsFs()
 
-func (c *Config) LoadConfigFromPath(filepath string) (Config, error) {
+type configLoader struct{}
+
+// NewConfigLoader is the constructor method and returns a service which implements ConfigLoader
+func NewConfigLoader() ConfigLoader {
+	return &configLoader{}
+}
+
+// LoadConfigFromPath loads from a config file the Config and validates the config
+func (c *configLoader) LoadConfigFromPath(filepath string) (Config, error) {
 	config := Config{}
 
 	err := ReplaceVariablesInFile(fileSystemWrapper, filepath, func(splitLines []string) error {
 		return yaml.Unmarshal([]byte(strings.Join(splitLines, "\n")), &config)
 	})
-
-	if config.ProjectID != "" {
-		config.Cluster.ProjectID = config.ProjectID
-		config.Cluster.Zone = config.Zone
-		config.Cluster.ClusterID = config.ClusterID
-		config.Cluster.Type = "gcp"
-	}
 
 	validate = validator.New()
 	err = validate.Struct(config)

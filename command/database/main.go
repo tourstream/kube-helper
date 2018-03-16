@@ -16,7 +16,7 @@ import (
 
 var writer io.Writer = os.Stdout
 var serviceBuilder builder.ServiceBuilderInterface = new(builder.Builder)
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var configLoader = loader.NewConfigLoader()
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
 var clock utilClock.Clock = new(utilClock.RealClock)
 

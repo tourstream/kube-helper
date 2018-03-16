@@ -18,7 +18,7 @@ func TestCmdHasNamespaceWithWrongConf(t *testing.T) {
 
 func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -56,7 +56,7 @@ func TestCmdHasNamespaceWithErrorForGetApplicationService(t *testing.T) {
 
 func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -99,7 +99,7 @@ func TestCmdHasNamespaceShouldReturnFalseIfNameSpaceNotFound(t *testing.T) {
 func TestCmdHasNamespaceShouldReturnTrueIfNameSpaceFound(t *testing.T) {
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
