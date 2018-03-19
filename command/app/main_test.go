@@ -14,16 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
 	"k8s.io/api/core/v1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGetNamespace(t *testing.T) {
 	for _, name := range []string{"", "master", "staging"} {
-		assert.Equal(t, getNamespace(name, false), "staging")
+		assert.Equal(t, getNamespace(name, false, ""), "staging")
 	}
 
 	for _, name := range []string{"", "master", "staging"} {
-		assert.Equal(t, getNamespace(name, true), "production")
+		assert.Equal(t, getNamespace(name, true, ""), "production")
 	}
 }
 
@@ -117,7 +117,7 @@ func captureOutput(f func()) (string, string) {
 
 func testNamespace(ns string) v1.Namespace {
 	return v1.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
+		ObjectMeta: metaV1.ObjectMeta{
 			Name: ns,
 		},
 	}

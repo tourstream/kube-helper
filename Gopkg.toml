@@ -4,6 +4,11 @@ ignored = [
   "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 ]
 
+[prune]
+  non-go = true
+  unused-packages = true
+  go-tests = true
+
 [[constraint]]
   name = "cloud.google.com/go"
   version = ">=0.7.0, <1.0.0"

@@ -6,12 +6,14 @@ import (
 
 func CmdShutdown(c *cli.Context) error {
 
-	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"))
+	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"), c.String("namespace"))
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
+
+	configContainer.Internal.IsProduction = c.Bool("production")
 
 	appService, err := applicationServiceCreator(kubernetesNamespace, configContainer)
 

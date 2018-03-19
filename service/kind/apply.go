@@ -340,7 +340,7 @@ func (k *kindService) setImageForContainer(annotations map[string]string, contai
 				latestTag = "staging-latest"
 			}
 
-			if namespaceWithoutPrefix == loader.ProductionEnvironment {
+			if k.config.Internal.IsProduction == true {
 				latestTag = "latest"
 			}
 

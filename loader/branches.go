@@ -33,11 +33,11 @@ func (b *BranchLoader) LoadBranches(bitbucket Bitbucket) ([]string, error) {
 		ClientID:     bitbucket.ClientID,
 		ClientSecret: bitbucket.ClientSecret,
 		Scopes:       []string{"repository"},
-		TokenURL:     bitbucket.TokenUrl,
+		TokenURL:     bitbucket.TokenURL,
 	}
 
 	client := conf.Client(ctx)
-	resp, err := client.Get(fmt.Sprintf("%s/2.0/repositories/%s/%s/refs/branches?pagelen=100", bitbucket.ApiUrl, bitbucket.Username, bitbucket.RepositoryName))
+	resp, err := client.Get(fmt.Sprintf("%s/2.0/repositories/%s/%s/refs/branches?pagelen=100", bitbucket.APIURL, bitbucket.Username, bitbucket.RepositoryName))
 
 	if err != nil {
 		return nil, err

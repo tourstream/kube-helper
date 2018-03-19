@@ -181,6 +181,8 @@ func TestCmdApplyWithFalseForHasTag(t *testing.T) {
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
+	config.Internal.IsProduction = true
+
 	oldServiceBuilder := serviceBuilder
 	oldApplicationServiceCreator := applicationServiceCreator
 	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
@@ -318,6 +320,64 @@ func TestCmdApply(t *testing.T) {
 
 	output, errOutput := captureOutput(func() {
 		command.RunTestCommand(CmdApply, []string{"apply", "-c", "never.yml", "foobar"})
+	})
+
+	assert.Empty(t, errOutput)
+	assert.Empty(t, output)
+}
+
+func TestCmdApplyProdNamespace(t *testing.T) {
+
+	oldHandler := cli.OsExiter
+
+	oldConfigLoader := configLoader
+	configLoaderMock := new(mocks.ConfigLoader)
+
+	configLoader = configLoaderMock
+
+	config := loader.Config{
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
+	}
+
+	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
+
+	oldServiceBuilder := serviceBuilder
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
+
+	serviceBuilder = serviceBuilderMock
+	oldApplicationServiceCreator := applicationServiceCreator
+
+	fakeApplicationService := new(mocks.ApplicationServiceInterface)
+
+	config.Internal.IsProduction = true
+
+	applicationServiceCreator = mockNewApplicationService(t, "green", config, fakeApplicationService, nil)
+
+	imagesLoaderMock := new(mocks.ImagesInterface)
+
+	imagesLoaderMock.On("HasTag", config.Cleanup, "latest").Return(true, nil)
+
+	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
+
+	fakeApplicationService.On("Apply").Return(nil)
+
+	defer func() {
+		cli.OsExiter = oldHandler
+		configLoader = oldConfigLoader
+		serviceBuilder = oldServiceBuilder
+		applicationServiceCreator = oldApplicationServiceCreator
+	}()
+
+	cli.OsExiter = func(exitCode int) {
+		assert.Equal(t, 0, exitCode)
+	}
+
+	output, errOutput := captureOutput(func() {
+		command.RunTestCommand(CmdApply, []string{"apply", "-c", "never.yml", "-p", "-n", "green"})
 	})
 
 	assert.Empty(t, errOutput)

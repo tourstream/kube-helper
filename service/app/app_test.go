@@ -106,17 +106,17 @@ func TestApplicationService_HasNamespaceWithPrefix(t *testing.T) {
 func TestApplicationService_GetDomain(t *testing.T) {
 
 	var dataProvider = []struct {
-		config    loader.DNSConfig
-		namespace string
-		expected  string
+		config       loader.DNSConfig
+		namespace    string
+		expected     string
+		globalConfig loader.Config
 	}{
-		{loader.DNSConfig{DomainSuffix: "-testing"}, "foobar", "foobar-testing"},
-		{loader.DNSConfig{BaseDomain: "testing", DomainSpacer: "."}, "foobar", "foobar.testing"},
-		{loader.DNSConfig{BaseDomain: "testing"}, "production", "testing"},
+		{loader.DNSConfig{DomainSuffix: "-testing"}, "foobar", "foobar-testing", loader.Config{}},
+		{loader.DNSConfig{BaseDomain: "testing", DomainSpacer: "."}, "foobar", "foobar.testing", loader.Config{}},
+		{loader.DNSConfig{BaseDomain: "testing"}, "production", "testing", loader.Config{Internal: loader.Internal{IsProduction: true}}},
 	}
 
 	oldServiceBuilder := serviceBuilder
-	config := loader.Config{}
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
@@ -124,11 +124,11 @@ func TestApplicationService_GetDomain(t *testing.T) {
 
 	for _, entry := range dataProvider {
 
-		serviceBuilderMock, _ := getBuilderMock(t, config, nil)
+		serviceBuilderMock, _ := getBuilderMock(t, entry.globalConfig, nil)
 
 		serviceBuilder = serviceBuilderMock
 
-		appService, err := NewApplicationService(entry.namespace, config)
+		appService, err := NewApplicationService(entry.namespace, entry.globalConfig)
 
 		assert.NoError(t, err)
 
