@@ -6,21 +6,25 @@ import (
 	"strings"
 
 	"kube-helper/loader"
-	"kube-helper/service"
 	"kube-helper/util"
 
-	"github.com/urfave/cli"
 	"fmt"
-	"regexp"
 	"kube-helper/model"
+	"regexp"
+
+	"kube-helper/service/builder"
+
+	"github.com/urfave/cli"
 )
 
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var configLoader = loader.NewConfigLoader()
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
-var serviceBuilder service.BuilderInterface = new(service.Builder)
+var serviceBuilder = builder.NewServiceBuilder()
 
 var writer io.Writer = os.Stdout
 
+// CmdCleanup cleans the project related registry in gcp
+// Remove all images which are not related anymore to a branch in bitbucket
 func CmdCleanup(c *cli.Context) error {
 
 	configContainer, err := configLoader.LoadConfigFromPath(c.String("config"))
@@ -78,7 +82,7 @@ func CmdCleanup(c *cli.Context) error {
 				branchName := strings.TrimSuffix(strings.TrimPrefix(tag, "staging-"), "-latest")
 
 				//do not cleanup if branch exists
-				if util.InArray(branches, branchName) {
+				if util.Contains(branches, branchName) {
 					cleanup = false
 					break
 				}
@@ -90,7 +94,7 @@ func CmdCleanup(c *cli.Context) error {
 		}
 	}
 
-	for manifestId, manifest := range manifestsForDeletion {
+	for manifestID, manifest := range manifestsForDeletion {
 		for _, tag := range manifest.Tags {
 			err = imagesService.Untag(configContainer.Cleanup, tag)
 
@@ -101,13 +105,13 @@ func CmdCleanup(c *cli.Context) error {
 			fmt.Fprintf(writer, "Tag %s was removed from image. \n", tag)
 		}
 
-		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestId)
+		err = imagesService.DeleteManifest(configContainer.Cleanup, manifestID)
 
 		if err != nil {
 			return cli.NewExitError(err.Error(), 1)
 		}
 
-		fmt.Fprintf(writer, "Image %s was removed.\n", manifestId)
+		fmt.Fprintf(writer, "Image %s was removed.\n", manifestID)
 	}
 
 	return nil

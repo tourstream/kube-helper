@@ -1,4 +1,4 @@
-package _mocks
+package mocks
 
 import io "io"
 import mock "github.com/stretchr/testify/mock"

@@ -8,9 +8,9 @@ import (
 	"kube-helper/util"
 	"strings"
 
+	"github.com/spf13/afero"
 	"github.com/urfave/cli"
 	"google.golang.org/api/sqladmin/v1beta4"
-	"github.com/spf13/afero"
 )
 
 const filenamePattern = "%s.sql.gz"
@@ -45,11 +45,11 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 	databaseName := getDatabaseName(configContainer.Database, branchName)
 
 	if databaseName == configContainer.Database.BaseName {
-		fmt.Fprint(cli.ErrWriter,"Copy to the same database makes no sense")
+		fmt.Fprint(cli.ErrWriter, "Copy to the same database makes no sense")
 		return nil
 	}
 
-	sqlService, err := serviceBuilder.GetSqlService()
+	sqlService, err := serviceBuilder.GetSQLService()
 
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -57,7 +57,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	database, _ := sqlService.Databases.Get(configContainer.Cluster.ProjectID, configContainer.Database.Instance, databaseName).Do()
 	if database != nil {
-		fmt.Fprintf(cli.ErrWriter,"Database %s already exists", databaseName)
+		fmt.Fprintf(cli.ErrWriter, "Database %s already exists", databaseName)
 		return nil
 	}
 	storageService, err := serviceBuilder.GetStorageService(configContainer.Database.Bucket)
@@ -100,7 +100,7 @@ func CopyDatabaseByBranchName(branchName string, configContainer loader.Config) 
 
 	defer storageService.DeleteFile(dumpFilename)
 
-	fmt.Fprintln(writer,"Export for sql finished")
+	fmt.Fprintln(writer, "Export for sql finished")
 
 	downloadedFile, err := storageService.DownLoadFile(dumpFilename, instance.ServiceAccountEmailAddress)
 

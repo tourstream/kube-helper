@@ -1,11 +1,11 @@
 package util
 
-func InArray(haystack []string, needle string) bool {
-	for _, el := range haystack {
-		if el == needle {
-			return true
-		}
+func Contains(haystack []string, needle string) bool {
+	set := make(map[string]struct{}, len(haystack))
+	for _, s := range haystack {
+		set[s] = struct{}{}
 	}
 
-	return false
+	_, ok := set[needle]
+	return ok
 }

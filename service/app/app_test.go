@@ -1,38 +1,62 @@
-package service
+package app
 
 import (
 	"errors"
 	"fmt"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"bytes"
+
+	testingKube "kube-helper/testing"
+
+	"kube-helper/service/image"
+	"kube-helper/service/kind"
+
+	"kube-helper/service/builder"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
+	utilClock "k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	testing_k8s "k8s.io/client-go/testing"
+	testingK8s "k8s.io/client-go/testing"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
 
 	var dataProvider = []struct {
-		reaction testing_k8s.ReactionFunc
+		reaction testingK8s.ReactionFunc
 		expected bool
 	}{
-		{nilReturnFunc, true},
-		{errorReturnFunc, false},
+		{testingKube.NilReturnFunc, true},
+		{testingKube.ErrorReturnFunc, false},
 	}
+
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
 	for _, entry := range dataProvider {
 
-		appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+		serviceBuilderMock, fakeClientSet := getBuilderMock(t, loader.Config{}, nil)
+
+		serviceBuilder = serviceBuilderMock
+
+		appService, err := NewApplicationService("foobar", loader.Config{})
+
+		assert.NoError(t, err)
 
 		fakeClientSet.PrependReactor("get", "namespaces", entry.reaction)
 
@@ -42,22 +66,36 @@ func TestApplicationService_HasNamespace(t *testing.T) {
 
 func TestApplicationService_HasNamespaceWithPrefix(t *testing.T) {
 
-	validate := func(action testing_k8s.Action) (handled bool, ret runtime.Object, err error) {
+	validate := func(action testingK8s.Action) (handled bool, ret runtime.Object, err error) {
 
 		assert.Equal(t, reflect.Indirect(reflect.ValueOf(action)).FieldByName("Name").String(), "dummy-foobar")
 		return true, nil, errors.New("explode")
 	}
 
 	var dataProvider = []struct {
-		reaction testing_k8s.ReactionFunc
+		reaction testingK8s.ReactionFunc
 		expected bool
 	}{
-		{nilReturnFunc, true},
+		{testingKube.NilReturnFunc, true},
 		{validate, false},
 	}
+
+	oldServiceBuilder := serviceBuilder
+	config := loader.Config{Namespace: loader.Namespace{Prefix: "dummy"}}
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
 	for _, entry := range dataProvider {
 
-		appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{Namespace: loader.Namespace{Prefix: "dummy"}})
+		serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+		serviceBuilder = serviceBuilderMock
+
+		appService, err := NewApplicationService("foobar", config)
+
+		assert.NoError(t, err)
 
 		fakeClientSet.PrependReactor("get", "namespaces", entry.reaction)
 
@@ -76,9 +114,23 @@ func TestApplicationService_GetDomain(t *testing.T) {
 		{loader.DNSConfig{BaseDomain: "testing", DomainSpacer: "."}, "foobar", "foobar.testing"},
 		{loader.DNSConfig{BaseDomain: "testing"}, "production", "testing"},
 	}
+
+	oldServiceBuilder := serviceBuilder
+	config := loader.Config{}
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
 	for _, entry := range dataProvider {
 
-		appService, _ := getApplicationService(t, entry.namespace, loader.Config{})
+		serviceBuilderMock, _ := getBuilderMock(t, config, nil)
+
+		serviceBuilder = serviceBuilderMock
+
+		appService, err := NewApplicationService(entry.namespace, config)
+
+		assert.NoError(t, err)
 
 		assert.Equal(t, entry.expected, appService.GetDomain(entry.config), fmt.Sprintf("Test failed for namespace %s", entry.namespace))
 	}
@@ -86,9 +138,22 @@ func TestApplicationService_GetDomain(t *testing.T) {
 
 func TestApplicationService_getGcpLoadBalancerIPWithError(t *testing.T) {
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+	oldServiceBuilder := serviceBuilder
+	config := loader.Config{}
 
-	fakeClientSet.PrependReactor("list", "ingresses", errorReturnFunc)
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
+
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.ErrorReturnFunc)
 	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 }
 
@@ -114,7 +179,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
   ]
 }`
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -123,21 +188,21 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 		Reply(200).
 		JSON(response)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
 		JSON(responseAddressList)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
 		JSON(`{"kind": "compute#address","name": "foobar-ip"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
@@ -157,13 +222,25 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -173,12 +250,12 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
-	fakeClientSet.PrependReactor("delete", "namespaces", nilReturnFunc)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
+	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
 
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	defer func() {
 		clock = oldClock
@@ -210,7 +287,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
   ]
 }`
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -218,21 +295,21 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		BodyString(`{"deletions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
 		JSON(responseAddressList)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(200).
 		JSON(`{"kind": "compute#address","name": "foobar-ip"}`)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
@@ -252,13 +329,25 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -268,12 +357,12 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
-	fakeClientSet.PrependReactor("delete", "namespaces", nilReturnFunc)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
+	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
 
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	defer func() {
 		clock = oldClock
@@ -300,7 +389,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 
 }`
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -309,7 +398,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		Reply(200).
 		JSON(response)
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Get("/compute/v1/projects/testing/global/addresses").
@@ -329,13 +418,25 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -345,11 +446,11 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("delete-collection", "ingresses", nilReturnFunc)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
 
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	defer func() {
 		clock = oldClock
@@ -373,7 +474,7 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 
 }`
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -396,13 +497,25 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -412,11 +525,11 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("delete-collection", "ingresses", errorReturnFunc)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.ErrorReturnFunc)
 
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	defer func() {
 		clock = oldClock
@@ -431,9 +544,22 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 
 func TestApplicationService_DeleteByNamespace(t *testing.T) {
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+	oldServiceBuilder := serviceBuilder
+	config := loader.Config{}
 
-	fakeClientSet.PrependReactor("delete", "namespaces", nilReturnFunc)
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
+
+	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
 	output := captureOutput(func() {
 		assert.NoError(t, appService.DeleteByNamespace())
 	})
@@ -443,26 +569,63 @@ func TestApplicationService_DeleteByNamespace(t *testing.T) {
 
 func TestApplicationService_DeleteByNamespaceWithError(t *testing.T) {
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", loader.Config{})
+	oldServiceBuilder := serviceBuilder
+	config := loader.Config{}
 
-	fakeClientSet.PrependReactor("delete", "namespaces", errorReturnFunc)
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
+
+	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.ErrorReturnFunc)
 	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 }
 
 func TestApplicationService_ApplyWithInvalidNamespace(t *testing.T) {
 
+	oldServiceBuilder := serviceBuilder
 	config := loader.Config{}
-	appService, _ := getApplicationService(t, "foo_bar", config)
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, _ := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foo_bar", config)
+
+	assert.NoError(t, err)
 
 	assert.EqualError(t, appService.Apply(), "[a-z0-9]([-a-z0-9]*[a-z0-9])? (e.g. '123-abc', regex used for validation is 'my-name')")
 }
 
 func TestApplicationService_ApplyWithErrorDuringNamespaceCreation(t *testing.T) {
 
+	oldServiceBuilder := serviceBuilder
 	config := loader.Config{}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
 
-	fakeClientSet.PrependReactor("create", "namespaces", errorReturnFunc)
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
+
+	fakeClientSet.PrependReactor("create", "namespaces", testingKube.ErrorReturnFunc)
 
 	assert.EqualError(t, appService.Apply(), "explode")
 }
@@ -478,7 +641,19 @@ func TestApplicationService_ApplyWithEndpointsWithError(t *testing.T) {
 			DomainSpacer: "-",
 		},
 	}
-	appService, _ := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+	}()
+
+	serviceBuilderMock, _ := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -486,7 +661,7 @@ func TestApplicationService_ApplyWithEndpointsWithError(t *testing.T) {
 		return functionCall([]string{})
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://servicemanagement.googleapis.com").
 		Get("/v1/services/foobar-dummy.local/configs").
@@ -517,7 +692,25 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 			DomainSpacer: "-",
 		},
 	}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -548,32 +741,18 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 }
 
 	`
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://servicemanagement.googleapis.com").
 		Get("/v1/services/foobar-dummy.local/configs").
 		Reply(200).
 		JSON(response)
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
-
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 	}()
 
@@ -591,7 +770,24 @@ func TestApplicationService_ApplyWithEndpoints(t *testing.T) {
 func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 
 	config := loader.Config{}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -599,40 +795,43 @@ func TestApplicationService_ApplyWithErrorForGetPods(t *testing.T) {
 		return functionCall([]string{})
 	}
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
-
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	fakeClientSet.PrependReactor("list", "pods", errorReturnFunc)
-
-	serviceBuilder = serviceBuilderMock
+	fakeClientSet.PrependReactor("list", "pods", testingKube.ErrorReturnFunc)
 
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 	}()
 
 	output := captureOutput(func() {
 		assert.EqualError(t, appService.Apply(), "explode")
 	})
 
-	assert.Equal(t, output, "Namespace \"foobar\" was generated\nNo suitable ingress found\nNo Annotations to process")
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\nno suitable ingress found\nNo Annotations to process")
 }
 
 func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
 
 	config := loader.Config{}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -640,25 +839,11 @@ func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
 		return errors.New("explode")
 	}
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
-
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 	}()
 
 	output := captureOutput(func() {
@@ -671,7 +856,24 @@ func TestApplicationService_ApplyWithErrorInReplace(t *testing.T) {
 func TestApplicationService_Apply(t *testing.T) {
 
 	config := loader.Config{}
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -679,25 +881,11 @@ func TestApplicationService_Apply(t *testing.T) {
 		return functionCall([]string{})
 	}
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
-
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 	}()
 
 	output := captureOutput(func() {
@@ -711,7 +899,21 @@ func TestApplicationService_Apply(t *testing.T) {
 func TestApplicationService_ApplyWithErrorForImageService(t *testing.T) {
 
 	config := loader.Config{}
-	appService, _ := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	serviceBuilderMock, _ := getBuilderMock(t, config, nil)
+
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -719,18 +921,8 @@ func TestApplicationService_ApplyWithErrorForImageService(t *testing.T) {
 		return functionCall([]string{})
 	}
 
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	serviceBuilderMock.On("GetImagesService").Return(nil, errors.New("explode"))
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 	}()
 
 	output := captureOutput(func() {
@@ -756,7 +948,24 @@ func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) 
 		},
 	}
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -764,27 +973,13 @@ func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) 
 		return functionCall([]string{})
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", errorReturnFunc)
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.ErrorReturnFunc)
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 	}()
 
 	output := captureOutput(func() {
@@ -810,7 +1005,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		},
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -818,7 +1013,24 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -830,7 +1042,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -840,28 +1052,14 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *te
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", errorReturnFunc)
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("get", "ingresses", testingKube.ErrorReturnFunc)
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 	}()
 
@@ -888,7 +1086,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 		},
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -896,7 +1094,24 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -908,7 +1123,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -919,7 +1134,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 	}
 
 	singleObject := &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -927,28 +1142,14 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGe
 				},
 			}}}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", getObjectReturnFunc(singleObject))
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("get", "ingresses", testingKube.GetObjectReturnFunc(singleObject))
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 	}()
 
@@ -975,7 +1176,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 		},
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -983,7 +1184,24 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -995,7 +1213,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -1006,35 +1224,21 @@ func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRe
 	}
 
 	singleObject := &v1beta1.Ingress{
-		ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 		Status: v1beta1.IngressStatus{
 			LoadBalancer: v1.LoadBalancerStatus{}}}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", getObjectReturnFunc(singleObject))
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	fakeClientSet.PrependReactor("get", "ingresses", testingKube.GetObjectReturnFunc(singleObject))
 
 	oldClock := clock
-	clock = util_clock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 		clock = oldClock
 
@@ -1064,7 +1268,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		},
 	}
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -1072,7 +1276,24 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -1084,7 +1305,7 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -1094,27 +1315,13 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 	}()
 
@@ -1160,7 +1367,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
   ]
 }`
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://www.googleapis.com").
 		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
@@ -1183,7 +1390,24 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(404)
 
-	appService, fakeClientSet := getApplicationService(t, "foobar", config)
+	oldServiceBuilder := serviceBuilder
+	oldKindServiceCreator := kindServiceCreator
+
+	defer func() {
+		serviceBuilder = oldServiceBuilder
+		kindServiceCreator = oldKindServiceCreator
+	}()
+
+	imagesMock := new(mocks.ImagesInterface)
+	kindMock := new(mocks.KindInterface)
+	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
+
+	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
+	serviceBuilder = serviceBuilderMock
+
+	appService, err := NewApplicationService("foobar", config)
+
+	assert.NoError(t, err)
 
 	oldLReplaceFunc := replaceVariablesInFile
 
@@ -1195,7 +1419,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		Items: []v1beta1.Ingress{
 			{},
 			{
-				ObjectMeta: meta_v1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
 				Status: v1beta1.IngressStatus{
 					LoadBalancer: v1.LoadBalancerStatus{
 						Ingress: []v1.LoadBalancerIngress{
@@ -1205,27 +1429,13 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		},
 	}
 
-	fakeClientSet.PrependReactor("list", "ingresses", getObjectReturnFunc(list))
-
-	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(MockBuilderInterface)
-
-	serviceBuilder = serviceBuilderMock
-
-	imagesMock := new(MockImagesInterface)
-	kindMock := new(MockKindInterface)
+	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
-	serviceBuilderMock.On("GetImagesService").Return(imagesMock, nil)
-	serviceBuilderMock.On("GetKindService", fakeClientSet, imagesMock, config).Return(kindMock)
-
-	serviceBuilder = serviceBuilderMock
-
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		serviceBuilder = oldServiceBuilder
 		gock.Off()
 	}()
 
@@ -1239,29 +1449,56 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 	assert.Contains(t, output, "There are 0 pods in the cluster\n")
 }
 
-func getApplicationService(t *testing.T, namespace string, config loader.Config) (ApplicationServiceInterface, *fake.Clientset) {
+func getBuilderMock(t *testing.T, config loader.Config, imageMock image.ImagesInterface) (builder.ServiceBuilderInterface, *fake.Clientset) {
+	builderService := builder.NewServiceBuilder()
+
+	dnsService, err := builderService.GetDNSService()
+
+	assert.NoError(t, err)
+
+	computeService, err := builderService.GetComputeService()
+
+	assert.NoError(t, err)
+
+	serviceManagementService, err := builderService.GetServiceManagementService()
+
+	assert.NoError(t, err)
+
 	fakeClientSet := fake.NewSimpleClientset()
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	builder := new(Builder)
+	var mockedImageError error
 
-	dnsService, err := builder.GetDNSService()
+	if imageMock == nil {
+		mockedImageError = errors.New("explode")
+	}
 
-	assert.NoError(t, err)
+	serviceBuilderMock.On("GetClientSet", config).Return(fakeClientSet, nil)
+	serviceBuilderMock.On("GetServiceManagementService").Return(serviceManagementService, nil)
+	serviceBuilderMock.On("GetDNSService").Return(dnsService, nil)
+	serviceBuilderMock.On("GetComputeService").Return(computeService, nil)
+	serviceBuilderMock.On("GetImagesService").Return(imageMock, mockedImageError)
 
-	computeService, err := builder.GetComputeService()
-
-	assert.NoError(t, err)
-
-	serviceManagementService, err := builder.getServiceManagementService()
-
-	assert.NoError(t, err)
-
-	return NewApplicationService(fakeClientSet, namespace, config, dnsService, computeService, serviceManagementService), fakeClientSet
+	return serviceBuilderMock, fakeClientSet
 }
 
-func createAuthCall() {
-	gock.New("https://accounts.google.com").
-		Post("/o/oauth2/token").
-		Reply(200).
-		JSON(map[string]string{"access_token": "bar"})
+func captureOutput(f func()) string {
+	oldWriter := writer
+	var buf bytes.Buffer
+	defer func() {
+		writer = oldWriter
+	}()
+	writer = &buf
+	f()
+	return buf.String()
+}
+
+func mockkindServiceCreator(t *testing.T, expectedClientSet kubernetes.Interface, expectedImagesService image.ImagesInterface, expectedConfig loader.Config, serviceMock kind.KindInterface) func(client kubernetes.Interface, imagesService image.ImagesInterface, config loader.Config) kind.KindInterface {
+	return func(client kubernetes.Interface, imagesService image.ImagesInterface, config loader.Config) kind.KindInterface {
+		assert.Equal(t, expectedConfig, config)
+		assert.Equal(t, expectedClientSet, client)
+		assert.Equal(t, expectedImagesService, imagesService)
+
+		return serviceMock
+	}
 }

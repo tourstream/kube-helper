@@ -7,6 +7,6 @@ import (
 )
 
 func TestInArray(t *testing.T) {
-	assert.True(t, InArray([]string{"foo", "bar"}, "foo"))
-	assert.False(t, InArray([]string{"foo", "bar"}, "foobar"))
+	assert.True(t, Contains([]string{"foo", "bar"}, "foo"))
+	assert.False(t, Contains([]string{"foo", "bar"}, "foobar"))
 }

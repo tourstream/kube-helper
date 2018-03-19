@@ -7,17 +7,18 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/api/sqladmin/v1beta4"
 	"kube-helper/loader"
-	"kube-helper/service"
-	util_clock "k8s.io/apimachinery/pkg/util/clock"
+	"kube-helper/service/builder"
+
+	"google.golang.org/api/sqladmin/v1beta4"
+	utilClock "k8s.io/apimachinery/pkg/util/clock"
 )
 
 var writer io.Writer = os.Stdout
-var serviceBuilder service.BuilderInterface = new(service.Builder)
-var configLoader loader.ConfigLoaderInterface = new(loader.Config)
+var serviceBuilder = builder.NewServiceBuilder()
+var configLoader = loader.NewConfigLoader()
 var branchLoader loader.BranchLoaderInterface = new(loader.BranchLoader)
-var clock util_clock.Clock = new(util_clock.RealClock)
+var clock utilClock.Clock = new(utilClock.RealClock)
 
 func waitForOperationToFinish(sqlService *sqladmin.Service, operation *sqladmin.Operation, projectID string, operationType string) error {
 	var err error

@@ -24,7 +24,7 @@ This tool is used in our workflow to help during the setup of a kubernetes deplo
 [coveralls-image]: https://coveralls.io/repos/github/tourstream/kube-helper/badge.svg
 [coveralls-url]: https://coveralls.io/github/tourstream/kube-helper
 
-[travis-image]: https://travis-ci.org/tourstream/kube-helper.svg?branch=release-1.9
+[travis-image]: https://travis-ci.org/tourstream/kube-helper.svg?branch=master
 [travis-url]: https://travis-ci.org/tourstream/kube-helper
 
 [license-image]: https://img.shields.io/github/license/tourstream/kube-helper.svg?style=flat-square
@@ -42,4 +42,4 @@ To generate mocks use the following tool
 
 Example command to generate mocks for e.g. command folder
 
-    mockery -dir service -name ApplicationServiceInterface -output _mocks -outpkg _mocks
+    mockery -dir service/app -name ApplicationServiceInterface

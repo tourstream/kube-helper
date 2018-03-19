@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"kube-helper/_mocks"
 	"kube-helper/command"
 	"kube-helper/loader"
+	"kube-helper/mocks"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -18,7 +18,7 @@ func helperTestCmdHasWrongConfigReturned(t *testing.T, Action interface{}, argum
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -47,20 +47,22 @@ func helperTestCmdlWithErrorForClientSet(t *testing.T, Action interface{}, argum
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
 	config := loader.Config{
-		ProjectID: "test-project",
-		Zone:      "berlin",
-		ClusterID: "testing",
+		Cluster: loader.Cluster{
+			ProjectID: "test-project",
+			Zone:      "berlin",
+			ClusterID: "testing",
+		},
 	}
 
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 

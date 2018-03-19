@@ -1,9 +1,10 @@
-package service
+package image
 
 import (
 	"errors"
 	"kube-helper/loader"
 	"kube-helper/model"
+	testingKube "kube-helper/testing"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,11 +13,11 @@ import (
 
 func TestImages_HasTag(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -32,11 +33,11 @@ func TestImages_HasTag(t *testing.T) {
 
 func TestImages_HasTagWithWithError(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -51,11 +52,11 @@ func TestImages_HasTagWithWithError(t *testing.T) {
 
 func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/manifests/branch-tag").
@@ -71,7 +72,7 @@ func TestImages_HasTagWithWrongStatusCode(t *testing.T) {
 
 func TestImages_List(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
@@ -133,7 +134,7 @@ func TestImages_List(t *testing.T) {
 	"tags": ["1.08", "1.09", "1.10", "latest", "test-249c4560aac8"]
 }
 	`
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -146,32 +147,32 @@ func TestImages_List(t *testing.T) {
 	expected.Name = "cloudsql-docker/gce-proxy"
 	expected.Manifests = map[string]model.Manifest{
 		"sha256:1": {
-			LayerId:       "layer-1",
+			LayerID:       "layer-1",
 			TimeCreatedMs: int64(1489090775466),
 			Tags:          []string{},
 		},
 		"sha256:2": {
-			LayerId:       "layer-2",
+			LayerID:       "layer-2",
 			TimeCreatedMs: int64(1489698289474),
 			Tags:          append(make([]string, 0, 4), "1.08"),
 		},
 		"sha256:3": {
-			LayerId:       "layer-3",
+			LayerID:       "layer-3",
 			TimeCreatedMs: int64(1484065818532),
 			Tags:          []string{},
 		},
 		"sha256:4": {
-			LayerId:       "layer-4",
+			LayerID:       "layer-4",
 			TimeCreatedMs: int64(1490900872959),
 			Tags:          append(make([]string, 0, 4), "1.09", "latest"),
 		},
 		"sha256:5": {
-			LayerId:       "layer-5",
+			LayerID:       "layer-5",
 			TimeCreatedMs: int64(1498512067506),
 			Tags:          append(make([]string, 0, 4), "1.10"),
 		},
 		"sha256:6": {
-			LayerId:       "layer-6",
+			LayerID:       "layer-6",
 			TimeCreatedMs: int64(1475860677921),
 			Tags:          append(make([]string, 0, 4), "test-249c4560aac8"),
 		},
@@ -180,7 +181,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:5",
 			Value: model.Manifest{
-				LayerId:       "layer-5",
+				LayerID:       "layer-5",
 				TimeCreatedMs: int64(1498512067506),
 				Tags:          append(make([]string, 0, 4), "1.10"),
 			},
@@ -188,7 +189,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:4",
 			Value: model.Manifest{
-				LayerId:       "layer-4",
+				LayerID:       "layer-4",
 				TimeCreatedMs: int64(1490900872959),
 				Tags:          append(make([]string, 0, 4), "1.09", "latest"),
 			},
@@ -196,7 +197,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:2",
 			Value: model.Manifest{
-				LayerId:       "layer-2",
+				LayerID:       "layer-2",
 				TimeCreatedMs: int64(1489698289474),
 				Tags:          append(make([]string, 0, 4), "1.08"),
 			},
@@ -204,7 +205,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:1",
 			Value: model.Manifest{
-				LayerId:       "layer-1",
+				LayerID:       "layer-1",
 				TimeCreatedMs: int64(1489090775466),
 				Tags:          []string{},
 			},
@@ -212,7 +213,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:3",
 			Value: model.Manifest{
-				LayerId:       "layer-3",
+				LayerID:       "layer-3",
 				TimeCreatedMs: int64(1484065818532),
 				Tags:          []string{},
 			},
@@ -220,7 +221,7 @@ func TestImages_List(t *testing.T) {
 		model.ManifestPair{
 			Key: "sha256:6",
 			Value: model.Manifest{
-				LayerId:       "layer-6",
+				LayerID:       "layer-6",
 				TimeCreatedMs: int64(1475860677921),
 				Tags:          append(make([]string, 0, 4), "test-249c4560aac8"),
 			},
@@ -233,13 +234,13 @@ func TestImages_List(t *testing.T) {
 
 func TestImages_ListWithNoValidJson(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
 	response := `No Valid JSON
 	`
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -254,11 +255,11 @@ func TestImages_ListWithNoValidJson(t *testing.T) {
 
 func TestImages_ListWithErrorToGetList(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -273,11 +274,11 @@ func TestImages_ListWithErrorToGetList(t *testing.T) {
 
 func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Get("/v2/project/container/tags/list").
@@ -294,11 +295,11 @@ func TestImages_ListWithWrongStatusCode(t *testing.T) {
 
 func TestImages_DeleteManifest(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -311,11 +312,11 @@ func TestImages_DeleteManifest(t *testing.T) {
 
 func TestImages_DeleteManifestWithError(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").
@@ -328,11 +329,11 @@ func TestImages_DeleteManifestWithError(t *testing.T) {
 
 func TestImages_Untag(t *testing.T) {
 
-	imageService, _ := newImagesService()
+	imageService, _ := NewImagesService()
 
 	defer gock.Off() // Flush pending mocks after test execution
 
-	createAuthCall()
+	testingKube.CreateAuthCall()
 
 	gock.New("https://google-registry").
 		Delete("/v2/project/container/manifests/branch-tag").

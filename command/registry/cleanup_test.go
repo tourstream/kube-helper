@@ -8,17 +8,18 @@ import (
 
 	"kube-helper/command"
 	"kube-helper/loader"
-	"kube-helper/_mocks"
+	"kube-helper/mocks"
+	"kube-helper/model"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
-	"kube-helper/model"
 )
 
 func TestCmdCleanupWithWrongConfig(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -46,7 +47,7 @@ func TestCmdCleanupWithErrorForImageService(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -59,7 +60,7 @@ func TestCmdCleanupWithErrorForImageService(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -88,7 +89,7 @@ func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -101,14 +102,13 @@ func TestCmdCleanupWithErrorOnImageListCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
 	serviceBuilderMock.On("GetImagesService").Return(imagesLoaderMock, nil)
-
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(nil, errors.New("explode"))
 
@@ -135,7 +135,7 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -148,9 +148,9 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -158,7 +158,7 @@ func TestCmdCleanupWithErrorOnBranchesCall(t *testing.T) {
 
 	imagesLoaderMock.On("List", config.Cleanup).Return(&model.TagCollection{}, nil)
 
-	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchesLoaderMock := new(mocks.BranchLoaderInterface)
 
 	oldBranchLoader := branchLoader
 	branchLoader = branchesLoaderMock
@@ -189,7 +189,7 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -202,9 +202,9 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -225,7 +225,7 @@ func TestCmdCleanupWithErrorOnUntagCall(t *testing.T) {
 	imagesLoaderMock.On("Untag", config.Cleanup, "staging-a-s-s-s-s-1").Return(errors.New("explode"))
 
 	oldBranchLoader := branchLoader
-	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchesLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoader = branchesLoaderMock
 
@@ -256,7 +256,7 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -269,9 +269,9 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -294,7 +294,7 @@ func TestCmdCleanupWithErrorOnDeleteManifestCall(t *testing.T) {
 	imagesLoaderMock.On("DeleteManifest", config.Cleanup, "sha256:manifesthash2").Return(errors.New("explode"))
 
 	oldBranchLoader := branchLoader
-	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchesLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoader = branchesLoaderMock
 
@@ -323,7 +323,7 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	oldHandler := cli.OsExiter
 
 	oldConfigLoader := configLoader
-	configLoaderMock := new(_mocks.ConfigLoaderInterface)
+	configLoaderMock := new(mocks.ConfigLoader)
 
 	configLoader = configLoaderMock
 
@@ -336,9 +336,9 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	configLoaderMock.On("LoadConfigFromPath", "never.yml").Return(config, nil)
 
 	oldServiceBuilder := serviceBuilder
-	serviceBuilderMock := new(_mocks.BuilderInterface)
+	serviceBuilderMock := new(mocks.ServiceBuilderInterface)
 
-	imagesLoaderMock := new(_mocks.ImagesInterface)
+	imagesLoaderMock := new(mocks.ImagesInterface)
 
 	serviceBuilder = serviceBuilderMock
 
@@ -417,7 +417,7 @@ func TestCmdCleanupOnlyStaging(t *testing.T) {
 	}
 
 	oldBranchLoader := branchLoader
-	branchesLoaderMock := new(_mocks.BranchLoaderInterface)
+	branchesLoaderMock := new(mocks.BranchLoaderInterface)
 
 	branchLoader = branchesLoaderMock
 
