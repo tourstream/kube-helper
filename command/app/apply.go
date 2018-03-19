@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli"
 )
 
+// CmdApply applies a configuration to kubernetes, this works as an upsert.
 func CmdApply(c *cli.Context) error {
 
 	kubernetesNamespace := getNamespace(c.Args().Get(0), c.Bool("production"), c.String("namespace"))

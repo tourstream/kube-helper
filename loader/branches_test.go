@@ -28,8 +28,8 @@ func TestGetBranches(t *testing.T) {
 		ClientSecret:   "Client Secret",
 		Username:       "Username",
 		RepositoryName: "repo",
-		TokenUrl:       ts.URL,
-		ApiUrl:         branchesServer.URL,
+		TokenURL:       ts.URL,
+		APIURL:         branchesServer.URL,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"foo"}, branches)
@@ -55,8 +55,8 @@ func TestGetBranchesWithHttpError(t *testing.T) {
 		ClientSecret:   "Client Secret",
 		Username:       "Username",
 		RepositoryName: "repo",
-		TokenUrl:       ts.URL,
-		ApiUrl:         branchesServer.URL,
+		TokenURL:       ts.URL,
+		APIURL:         branchesServer.URL,
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, []string{}, branches)
@@ -81,8 +81,8 @@ func TestGetBranchesWithHttpBodyError(t *testing.T) {
 		ClientSecret:   "Client Secret",
 		Username:       "Username",
 		RepositoryName: "repo",
-		TokenUrl:       ts.URL,
-		ApiUrl:         branchesServer.URL,
+		TokenURL:       ts.URL,
+		APIURL:         branchesServer.URL,
 	})
 	assert.EqualError(t, err, "unexpected end of JSON input")
 

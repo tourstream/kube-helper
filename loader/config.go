@@ -40,8 +40,8 @@ type Bitbucket struct {
 	ClientSecret   string `yaml:"client_secret"`
 	Username       string `yaml:"username"`
 	RepositoryName string `yaml:"repository_name"`
-	ApiUrl         string `yaml:"api_url"`
-	TokenUrl       string `yaml:"token_url"`
+	APIURL         string `yaml:"api_url"`
+	TokenURL       string `yaml:"token_url"`
 }
 
 type Database struct {
@@ -55,6 +55,7 @@ type Endpoints struct {
 	Enabled bool
 }
 
+// Internal is part of the config which is only changed and set in the helper, it is not applied trough yaml
 type Internal struct {
 	IsProduction bool
 }
