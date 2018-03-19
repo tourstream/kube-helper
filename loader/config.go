@@ -55,6 +55,10 @@ type Endpoints struct {
 	Enabled bool
 }
 
+type Internal struct {
+	IsProduction bool
+}
+
 type Cluster struct {
 	Type      string
 	ProjectID string `yaml:"project_id" validate:"required"`
@@ -76,6 +80,7 @@ type Config struct {
 	DNS                      DNSConfig `yaml:"dns"`
 	Database                 Database
 	Namespace                Namespace `validate:"required"`
+	Internal                 Internal  `yaml:"-"`
 }
 
 var fileSystemWrapper = afero.NewOsFs()

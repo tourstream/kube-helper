@@ -8,8 +8,9 @@ import (
 	"kube-helper/command/database"
 	"kube-helper/command/registry"
 
-	"github.com/urfave/cli"
 	"kube-helper/command/services"
+
+	"github.com/urfave/cli"
 )
 
 var GlobalFlags = []cli.Flag{}
@@ -70,6 +71,10 @@ var Commands = []cli.Command{
 						Name:  "production, p",
 						Usage: "update production",
 					},
+					cli.StringFlag{
+						Name:  "namespace, n",
+						Usage: "namespace for production (useful for green blue deployment)",
+					},
 				},
 			},
 			{
@@ -85,6 +90,10 @@ var Commands = []cli.Command{
 					cli.BoolFlag{
 						Name:  "production, p",
 						Usage: "update production",
+					},
+					cli.StringFlag{
+						Name:  "namespace, n",
+						Usage: "namespace for production (useful for green blue deployment)",
 					},
 				},
 			},
@@ -125,9 +134,9 @@ var Commands = []cli.Command{
 		Usage:   "options for the services in the cluster",
 		Subcommands: []cli.Command{
 			{
-				Name:   "get-ip",
-				Usage:  "get the cluster ip of a service in a namespace",
-				Action: services.CmdGetIp,
+				Name:      "get-ip",
+				Usage:     "get the cluster ip of a service in a namespace",
+				Action:    services.CmdGetIp,
 				ArgsUsage: "[namespace, name]",
 				Flags: []cli.Flag{
 					cli.StringFlag{
