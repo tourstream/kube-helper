@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"kube-helper/loader"
@@ -8,9 +9,6 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
-
-	"bytes"
 
 	testingKube "kube-helper/testing"
 
@@ -19,17 +17,20 @@ import (
 
 	"kube-helper/service/builder"
 
+	"kube-helper/service/app/watcher"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gopkg.in/h2non/gock.v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilClock "k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	testingK8s "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 )
 
 func TestApplicationService_HasNamespace(t *testing.T) {
@@ -136,27 +137,6 @@ func TestApplicationService_GetDomain(t *testing.T) {
 	}
 }
 
-func TestApplicationService_getGcpLoadBalancerIPWithError(t *testing.T) {
-
-	oldServiceBuilder := serviceBuilder
-	config := loader.Config{}
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-	}()
-
-	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
-
-	serviceBuilder = serviceBuilderMock
-
-	appService, err := NewApplicationService("foobar", config)
-
-	assert.NoError(t, err)
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.ErrorReturnFunc)
-	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
-}
-
 func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.T) {
 
 	defer gock.Off()
@@ -222,10 +202,32 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 		},
 	}
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
+		watchControllerCreator = oldNewResourceController
 	}()
 
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
@@ -239,34 +241,28 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIp(t *testing.
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
+			obj,
 		},
 	}
 
+	namespace := &v1.Namespace{
+		ObjectMeta: metaV1.ObjectMeta{
+			Annotations: map[string]string{kind.IngressKey: kind.IngressExists},
+		},
+	}
+
+	watchControllerMock.On("Run", mock.Anything).Once()
+
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
 	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
-
-	oldClock := clock
-	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	defer func() {
-		clock = oldClock
-	}()
 
 	output := captureOutput(func() {
 		assert.NoError(t, appService.DeleteByNamespace())
 	})
 
 	assert.Contains(t, output, "Namespace \"foobar\" was deleted\n")
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
 	assert.Contains(t, output, "Deleted DNS Entries for 127.0.0.1")
 	assert.Contains(t, output, "Waiting for IP \"foobar-ip\" to be released")
 	assert.Contains(t, output, "foobar-ip is deleted and so the ingres with name \"Foobar-Ingress\" is removed")
@@ -329,10 +325,32 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
+		watchControllerCreator = oldNewResourceController
 	}()
 
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
@@ -346,34 +364,28 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
+			obj,
 		},
 	}
 
+	namespace := &v1.Namespace{
+		ObjectMeta: metaV1.ObjectMeta{
+			Annotations: map[string]string{kind.IngressKey: kind.IngressExists},
+		},
+	}
+
+	watchControllerMock.On("Run", mock.Anything).Once()
+
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
 	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
-
-	oldClock := clock
-	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	defer func() {
-		clock = oldClock
-	}()
 
 	output := captureOutput(func() {
 		assert.EqualError(t, appService.DeleteByNamespace(), "Post https://www.googleapis.com/dns/v1/projects/foobar-dns/managedZones/zone-test/changes?alt=json: explode")
 	})
 
 	assert.Contains(t, output, "Namespace \"foobar\" was deleted\n")
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
 	assert.Contains(t, output, "Waiting for IP \"foobar-ip\" to be released")
 	assert.Contains(t, output, "foobar-ip is deleted and so the ingres with name \"Foobar-Ingress\" is removed")
 }
@@ -418,10 +430,32 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
+		watchControllerCreator = oldNewResourceController
 	}()
 
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
@@ -435,32 +469,27 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
+			obj,
 		},
 	}
 
+	namespace := &v1.Namespace{
+		ObjectMeta: metaV1.ObjectMeta{
+			Annotations: map[string]string{kind.IngressKey: kind.IngressExists},
+		},
+	}
+
+	watchControllerMock.On("Run", mock.Anything).Once()
+
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.NilReturnFunc)
-
-	oldClock := clock
-	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	defer func() {
-		clock = oldClock
-	}()
 
 	output := captureOutput(func() {
 		assert.EqualError(t, appService.DeleteByNamespace(), "Get https://www.googleapis.com/compute/v1/projects/testing/global/addresses?alt=json: explode")
 	})
 
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
+	assert.Empty(t, output)
 }
 
 func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForDeletionOfIngress(t *testing.T) {
@@ -497,10 +526,32 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 		},
 	}
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
+		watchControllerCreator = oldNewResourceController
 	}()
 
 	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, nil)
@@ -514,32 +565,27 @@ func TestApplicationService_DeleteByNamespaceWithValidLoadBalancerIpAndErrorForD
 	list := &v1beta1.IngressList{
 		Items: []v1beta1.Ingress{
 			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
+			obj,
 		},
 	}
 
+	namespace := &v1.Namespace{
+		ObjectMeta: metaV1.ObjectMeta{
+			Annotations: map[string]string{kind.IngressKey: kind.IngressExists},
+		},
+	}
+
+	watchControllerMock.On("Run", mock.Anything).Once()
+
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
 	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
 	fakeClientSet.PrependReactor("delete-collection", "ingresses", testingKube.ErrorReturnFunc)
-
-	oldClock := clock
-	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	defer func() {
-		clock = oldClock
-	}()
 
 	output := captureOutput(func() {
 		assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 	})
 
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1")
+	assert.Empty(t, output)
 }
 
 func TestApplicationService_DeleteByNamespace(t *testing.T) {
@@ -559,6 +605,7 @@ func TestApplicationService_DeleteByNamespace(t *testing.T) {
 
 	assert.NoError(t, err)
 
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(&v1.Namespace{}))
 	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.NilReturnFunc)
 	output := captureOutput(func() {
 		assert.NoError(t, appService.DeleteByNamespace())
@@ -584,6 +631,7 @@ func TestApplicationService_DeleteByNamespaceWithError(t *testing.T) {
 
 	assert.NoError(t, err)
 
+	fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(&v1.Namespace{}))
 	fakeClientSet.PrependReactor("delete", "namespaces", testingKube.ErrorReturnFunc)
 	assert.EqualError(t, appService.DeleteByNamespace(), "explode")
 }
@@ -932,326 +980,6 @@ func TestApplicationService_ApplyWithErrorForImageService(t *testing.T) {
 	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
 }
 
-func TestApplicationService_ApplyWithDNSAndErrorForLoadBalancerIp(t *testing.T) {
-
-	config := loader.Config{
-		Cluster: loader.Cluster{
-			Type:      "gcp",
-			ProjectID: "testing",
-		},
-		DNS: loader.DNSConfig{
-			ProjectID:    "foobar-dns",
-			ManagedZone:  "zone-test",
-			DomainSpacer: "-",
-			BaseDomain:   "testing",
-			CNameSuffix:  []string{"-cname.domain."},
-		},
-	}
-
-	oldServiceBuilder := serviceBuilder
-	oldKindServiceCreator := kindServiceCreator
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		kindServiceCreator = oldKindServiceCreator
-	}()
-
-	imagesMock := new(mocks.ImagesInterface)
-	kindMock := new(mocks.KindInterface)
-	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
-
-	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
-	serviceBuilder = serviceBuilderMock
-
-	appService, err := NewApplicationService("foobar", config)
-
-	assert.NoError(t, err)
-
-	oldLReplaceFunc := replaceVariablesInFile
-
-	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
-		return functionCall([]string{})
-	}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.ErrorReturnFunc)
-
-	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
-	kindMock.On("CleanupKind", "foobar").Return(nil)
-
-	defer func() {
-		replaceVariablesInFile = oldLReplaceFunc
-	}()
-
-	output := captureOutput(func() {
-		assert.EqualError(t, appService.Apply(), "explode")
-	})
-
-	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
-}
-
-func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIp(t *testing.T) {
-
-	config := loader.Config{
-		Cluster: loader.Cluster{
-			Type:      "gcp",
-			ProjectID: "testing",
-		},
-		DNS: loader.DNSConfig{
-			ProjectID:    "foobar-dns",
-			ManagedZone:  "zone-test",
-			DomainSpacer: "-",
-			BaseDomain:   "testing",
-			CNameSuffix:  []string{"-cname.domain."},
-		},
-	}
-
-	testingKube.CreateAuthCall()
-
-	gock.New("https://www.googleapis.com").
-		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
-		MatchType("json").
-		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
-		ReplyError(errors.New("explode"))
-
-	oldServiceBuilder := serviceBuilder
-	oldKindServiceCreator := kindServiceCreator
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		kindServiceCreator = oldKindServiceCreator
-	}()
-
-	imagesMock := new(mocks.ImagesInterface)
-	kindMock := new(mocks.KindInterface)
-	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
-
-	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
-	serviceBuilder = serviceBuilderMock
-
-	appService, err := NewApplicationService("foobar", config)
-
-	assert.NoError(t, err)
-
-	oldLReplaceFunc := replaceVariablesInFile
-
-	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
-		return functionCall([]string{})
-	}
-
-	list := &v1beta1.IngressList{
-		Items: []v1beta1.Ingress{
-			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: ""},
-						},
-					}}},
-		},
-	}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", testingKube.ErrorReturnFunc)
-
-	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
-	kindMock.On("CleanupKind", "foobar").Return(nil)
-
-	defer func() {
-		replaceVariablesInFile = oldLReplaceFunc
-		gock.Off()
-	}()
-
-	output := captureOutput(func() {
-		assert.EqualError(t, appService.Apply(), "explode")
-	})
-
-	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
-}
-
-func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithGet(t *testing.T) {
-
-	config := loader.Config{
-		Cluster: loader.Cluster{
-			Type:      "gcp",
-			ProjectID: "testing",
-		},
-		DNS: loader.DNSConfig{
-			ProjectID:    "foobar-dns",
-			ManagedZone:  "zone-test",
-			DomainSpacer: "-",
-			BaseDomain:   "testing",
-			CNameSuffix:  []string{"-cname.domain."},
-		},
-	}
-
-	testingKube.CreateAuthCall()
-
-	gock.New("https://www.googleapis.com").
-		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
-		MatchType("json").
-		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
-		ReplyError(errors.New("explode"))
-
-	oldServiceBuilder := serviceBuilder
-	oldKindServiceCreator := kindServiceCreator
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		kindServiceCreator = oldKindServiceCreator
-	}()
-
-	imagesMock := new(mocks.ImagesInterface)
-	kindMock := new(mocks.KindInterface)
-	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
-
-	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
-	serviceBuilder = serviceBuilderMock
-
-	appService, err := NewApplicationService("foobar", config)
-
-	assert.NoError(t, err)
-
-	oldLReplaceFunc := replaceVariablesInFile
-
-	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
-		return functionCall([]string{})
-	}
-
-	list := &v1beta1.IngressList{
-		Items: []v1beta1.Ingress{
-			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: ""},
-						},
-					}}},
-		},
-	}
-
-	singleObject := &v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-		Status: v1beta1.IngressStatus{
-			LoadBalancer: v1.LoadBalancerStatus{
-				Ingress: []v1.LoadBalancerIngress{
-					{IP: ""},
-				},
-			}}}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", testingKube.GetObjectReturnFunc(singleObject))
-
-	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
-	kindMock.On("CleanupKind", "foobar").Return(nil)
-
-	defer func() {
-		replaceVariablesInFile = oldLReplaceFunc
-		gock.Off()
-	}()
-
-	output := captureOutput(func() {
-		assert.EqualError(t, appService.Apply(), "no Loadbalancer IP found")
-	})
-
-	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
-}
-
-func TestApplicationService_ApplyWithDNSAndErrorForWaitungOnLoadbalancerIpWithRetry(t *testing.T) {
-
-	config := loader.Config{
-		Cluster: loader.Cluster{
-			Type:      "gcp",
-			ProjectID: "testing",
-		},
-		DNS: loader.DNSConfig{
-			ProjectID:    "foobar-dns",
-			ManagedZone:  "zone-test",
-			DomainSpacer: "-",
-			BaseDomain:   "testing",
-			CNameSuffix:  []string{"-cname.domain."},
-		},
-	}
-
-	testingKube.CreateAuthCall()
-
-	gock.New("https://www.googleapis.com").
-		Post("/dns/v1/projects/foobar-dns/managedZones/zone-test/changes").
-		MatchType("json").
-		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
-		ReplyError(errors.New("explode"))
-
-	oldServiceBuilder := serviceBuilder
-	oldKindServiceCreator := kindServiceCreator
-
-	defer func() {
-		serviceBuilder = oldServiceBuilder
-		kindServiceCreator = oldKindServiceCreator
-	}()
-
-	imagesMock := new(mocks.ImagesInterface)
-	kindMock := new(mocks.KindInterface)
-	serviceBuilderMock, fakeClientSet := getBuilderMock(t, config, imagesMock)
-
-	kindServiceCreator = mockkindServiceCreator(t, fakeClientSet, imagesMock, config, kindMock)
-	serviceBuilder = serviceBuilderMock
-
-	appService, err := NewApplicationService("foobar", config)
-
-	assert.NoError(t, err)
-
-	oldLReplaceFunc := replaceVariablesInFile
-
-	replaceVariablesInFile = func(fileSystem afero.Fs, path string, functionCall loader.Callable) error {
-		return functionCall([]string{})
-	}
-
-	list := &v1beta1.IngressList{
-		Items: []v1beta1.Ingress{
-			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: ""},
-						},
-					}}},
-		},
-	}
-
-	singleObject := &v1beta1.Ingress{
-		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-		Status: v1beta1.IngressStatus{
-			LoadBalancer: v1.LoadBalancerStatus{}}}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
-	fakeClientSet.PrependReactor("get", "ingresses", testingKube.GetObjectReturnFunc(singleObject))
-
-	oldClock := clock
-	clock = utilClock.NewFakeClock(time.Date(2014, 1, 1, 3, 0, 30, 0, time.UTC))
-
-	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
-	kindMock.On("CleanupKind", "foobar").Return(nil)
-
-	defer func() {
-		replaceVariablesInFile = oldLReplaceFunc
-		gock.Off()
-		clock = oldClock
-
-	}()
-
-	output := captureOutput(func() {
-		assert.EqualError(t, appService.Apply(), "no Loadbalancer IP found")
-	})
-
-	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
-	assert.Contains(t, output, "Waiting for Loadbalancer IP\n")
-}
-
 func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) {
 
 	config := loader.Config{
@@ -1276,13 +1004,35 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		BodyString(`{"additions":[{"name":"foobar-testing","rrdatas":["127.0.0.1"],"ttl":300,"type":"A"},{"name":"foobar-cname.domain.","rrdatas":["foobar-testing"],"ttl":300,"type":"CNAME"}]}`).
 		ReplyError(errors.New("explode"))
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
 	oldKindServiceCreator := kindServiceCreator
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
 		kindServiceCreator = oldKindServiceCreator
+		watchControllerCreator = oldNewResourceController
 	}()
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	imagesMock := new(mocks.ImagesInterface)
 	kindMock := new(mocks.KindInterface)
@@ -1301,36 +1051,20 @@ func TestApplicationService_ApplyWithDNSAndErrorForDomainCreation(t *testing.T) 
 		return functionCall([]string{})
 	}
 
-	list := &v1beta1.IngressList{
-		Items: []v1beta1.Ingress{
-			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
-		},
-	}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	watchControllerMock.On("Run", mock.Anything).Once()
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
 
 	defer func() {
 		replaceVariablesInFile = oldLReplaceFunc
-		gock.Off()
 	}()
 
 	output := captureOutput(func() {
 		assert.EqualError(t, appService.Apply(), "Post https://www.googleapis.com/dns/v1/projects/foobar-dns/managedZones/zone-test/changes?alt=json: explode")
 	})
 
-	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1\n")
+	assert.Equal(t, output, "Namespace \"foobar\" was generated\n")
 }
 
 func TestApplicationService_ApplyWithDNS(t *testing.T) {
@@ -1390,13 +1124,35 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		Get("/compute/v1/projects/testing/global/addresses").
 		Reply(404)
 
+	oldNewResourceController := watchControllerCreator
 	oldServiceBuilder := serviceBuilder
 	oldKindServiceCreator := kindServiceCreator
 
 	defer func() {
 		serviceBuilder = oldServiceBuilder
 		kindServiceCreator = oldKindServiceCreator
+		watchControllerCreator = oldNewResourceController
 	}()
+
+	watchControllerMock := new(mocks.Controller)
+
+	obj := v1beta1.Ingress{
+		ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
+		Status: v1beta1.IngressStatus{
+			LoadBalancer: v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{IP: "127.0.0.1"},
+				},
+			},
+		},
+	}
+
+	watchControllerCreator = func(client kubernetes.Interface, informer cache.SharedIndexInformer, processor watcher.ObjectProcessor) cache.Controller {
+
+		processor(&obj)
+
+		return watchControllerMock
+	}
 
 	imagesMock := new(mocks.ImagesInterface)
 	kindMock := new(mocks.KindInterface)
@@ -1415,21 +1171,7 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 		return functionCall([]string{})
 	}
 
-	list := &v1beta1.IngressList{
-		Items: []v1beta1.Ingress{
-			{},
-			{
-				ObjectMeta: metaV1.ObjectMeta{Name: "Foobar-Ingress", Annotations: map[string]string{"kubernetes.io/ingress.class": "gce", "ingress.kubernetes.io/static-ip": "foobar-ip"}},
-				Status: v1beta1.IngressStatus{
-					LoadBalancer: v1.LoadBalancerStatus{
-						Ingress: []v1.LoadBalancerIngress{
-							{IP: "127.0.0.1"},
-						},
-					}}},
-		},
-	}
-
-	fakeClientSet.PrependReactor("list", "ingresses", testingKube.GetObjectReturnFunc(list))
+	watchControllerMock.On("Run", mock.Anything).Once()
 
 	kindMock.On("ApplyKind", "foobar", []string{}, "foobar").Return(nil)
 	kindMock.On("CleanupKind", "foobar").Return(nil)
@@ -1444,7 +1186,6 @@ func TestApplicationService_ApplyWithDNS(t *testing.T) {
 	})
 
 	assert.Contains(t, output, "Namespace \"foobar\" was generated\n")
-	assert.Contains(t, output, "Loadbalancer IP : 127.0.0.1\n")
 	assert.Contains(t, output, "Created DNS Entries for 127.0.0.1\n")
 	assert.Contains(t, output, "There are 0 pods in the cluster\n")
 }
