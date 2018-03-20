@@ -271,9 +271,21 @@ func TestKindService_ApplyKindInsert(t *testing.T) {
 		fakeClientSet.PrependReactor("get", entry.resource, testingKube.ErrorReturnFunc)
 		fakeClientSet.PrependReactor("create", entry.resource, testingKube.NilReturnFunc)
 
+		namespace := new(coreV1.Namespace)
+
+		if entry.resource == "ingresses" {
+
+			fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
+			fakeClientSet.PrependReactor("update", "namespaces", testingKube.NilReturnFunc)
+		}
+
 		output := captureOutput(func() {
 			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
+
+		if entry.resource == "ingresses" {
+			assert.Equal(t, map[string]string{IngressKey: IngressExists}, namespace.GetAnnotations())
+		}
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}
@@ -299,9 +311,21 @@ func TestKindService_ApplyKindUpdate(t *testing.T) {
 		fakeClientSet.PrependReactor("get", entry.resource, testingKube.GetObjectReturnFunc(entry.object))
 		fakeClientSet.PrependReactor("update", entry.resource, testingKube.NilReturnFunc)
 
+		namespace := new(coreV1.Namespace)
+
+		if entry.resource == "ingresses" {
+
+			fakeClientSet.PrependReactor("get", "namespaces", testingKube.GetObjectReturnFunc(namespace))
+			fakeClientSet.PrependReactor("update", "namespaces", testingKube.NilReturnFunc)
+		}
+
 		output := captureOutput(func() {
 			assert.NoError(t, kindService.ApplyKind("foobar", []string{entry.kind}, "foobar"), fmt.Sprintf("Test failed for resource %s", entry.resource))
 		})
+
+		if entry.resource == "ingresses" {
+			assert.Equal(t, map[string]string{IngressKey: IngressExists}, namespace.GetAnnotations())
+		}
 
 		assert.Equal(t, entry.out, output, fmt.Sprintf("Test failed for resource %s", entry.resource))
 	}

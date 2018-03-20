@@ -16,6 +16,11 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	IngressKey    = "tourstream.eu/ingress"
+	IngressExists = "true"
+)
+
 func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, namespaceWithoutPrefix string) error {
 
 	fileContent, groupVersionKind, err := k.decoder.Decode([]byte(strings.Join(fileLines, "\n")), nil, nil)
@@ -45,19 +50,30 @@ func (k *kindService) ApplyKind(kubernetesNamespace string, fileLines []string, 
 	}
 }
 
+func (k *kindService) setUsedKind(kinds []string, name string, kind string, isUpdated bool) []string {
+	format := "%s \"%s\" was generated.\n"
+
+	if isUpdated {
+		format = "%s \"%s\" was updated.\n"
+	}
+
+	fmt.Fprintf(writer, format, kind, name)
+
+	return append(kinds, name)
+}
+
 func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *coreV1.Secret) error {
 	_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Get(secret.Name, metaV1.GetOptions{})
 
 	if err != nil {
+
 		_, err := k.clientSet.CoreV1().Secrets(kubernetesNamespace).Create(secret)
 
 		if err != nil {
 			return err
 		}
 
-		k.usedKind.secret = append(k.usedKind.secret, secret.Name)
-
-		fmt.Fprintf(writer, "Secret \"%s\" was generated.\n", secret.Name)
+		k.usedKind.secret = k.setUsedKind(k.usedKind.secret, secret.Name, secret.Kind, false)
 
 		return nil
 	}
@@ -68,9 +84,7 @@ func (k *kindService) upsertSecrets(kubernetesNamespace string, secret *coreV1.S
 		return err
 	}
 
-	k.usedKind.secret = append(k.usedKind.secret, secret.Name)
-
-	fmt.Fprintf(writer, "Secret \"%s\" was updated.\n", secret.Name)
+	k.usedKind.secret = k.setUsedKind(k.usedKind.secret, secret.Name, secret.Kind, true)
 
 	return nil
 }
@@ -170,7 +184,7 @@ func (k *kindService) upsertService(kubernetesNamespace string, service *coreV1.
 	service.ResourceVersion = existingService.ResourceVersion
 	service.Spec.ClusterIP = existingService.Spec.ClusterIP
 
-	if _, ok := service.Annotations["tourstream.eu/ingress"]; ok {
+	if _, ok := service.Annotations[IngressKey]; ok {
 		// TODO add better check which port is which, for now take the same ports like before so that the backend still works with it
 		service.Spec.Ports = existingService.Spec.Ports
 	}
@@ -306,6 +320,20 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *extensi
 	k.usedKind.ingress = append(k.usedKind.ingress, ingress.Name)
 	fmt.Fprintf(writer, message, ingress.Name)
 
+	namespace, _ := k.clientSet.CoreV1().Namespaces().Get(kubernetesNamespace, metaV1.GetOptions{})
+
+	annotations := namespace.GetAnnotations()
+
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+
+	annotations[IngressKey] = IngressExists
+
+	namespace.SetAnnotations(annotations)
+
+	_, err = k.clientSet.CoreV1().Namespaces().Update(namespace)
+
 	if err != nil {
 		return err
 	}
@@ -314,7 +342,6 @@ func (k *kindService) upsertIngress(kubernetesNamespace string, ingress *extensi
 }
 
 func (k *kindService) setImageForContainer(annotations map[string]string, containers []coreV1.Container, namespaceWithoutPrefix string) error {
-
 	if _, ok := annotations["imageUpdateStrategy"]; !ok {
 		return nil
 	}

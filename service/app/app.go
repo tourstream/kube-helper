@@ -16,15 +16,21 @@ import (
 
 	"kube-helper/service/kind"
 
+	"kube-helper/service/app/watcher"
+
 	"github.com/spf13/afero"
 	compute_v1 "google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/servicemanagement/v1"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilClock "k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 var serviceBuilder = builder.NewServiceBuilder()
@@ -32,6 +38,7 @@ var clock utilClock.Clock = new(utilClock.RealClock)
 var replaceVariablesInFile loader.ReplaceFunc = loader.ReplaceVariablesInFile
 var writer io.Writer = os.Stdout
 var kindServiceCreator = kind.NewKind
+var watchControllerCreator = watcher.New
 
 type ApplicationServiceInterface interface {
 	DeleteByNamespace() error
@@ -118,6 +125,13 @@ func (a *applicationService) Apply() error {
 			return err
 		}
 	}
+
+	ctrl, ipCh, stopCh := a.waitLoadBalancerIP()
+
+	defer close(stopCh)
+	defer close(ipCh)
+	go ctrl.Run(stopCh)
+
 	err = a.applyFromConfig()
 
 	if err != nil {
@@ -126,11 +140,7 @@ func (a *applicationService) Apply() error {
 
 	if !update && a.config.Cluster.Type == "gcp" {
 
-		ip, err := a.getGcpLoadBalancerIP(60)
-
-		if err != nil {
-			return err
-		}
+		ip := <-ipCh
 
 		err = a.createDNSEntries(ip, a.config.DNS)
 
@@ -157,18 +167,30 @@ func (a *applicationService) Apply() error {
 }
 
 func (a *applicationService) DeleteByNamespace() error {
-	ip, _ := a.getGcpLoadBalancerIP(10)
 
-	var projectID string
-
-	if a.config.Cluster.Type == "gcp" {
-		projectID = a.config.Cluster.ProjectID
-	}
-
-	err := a.deleteIngress(projectID)
+	nsObject, err := a.clientSet.CoreV1().Namespaces().Get(a.prefixedNamespace, meta_v1.GetOptions{})
 
 	if err != nil {
 		return err
+	}
+
+	var ip string
+
+	if ingressExists, ok := nsObject.Annotations[kind.IngressKey]; ok && ingressExists == kind.IngressExists {
+
+		ctrl, ipCh, stopCh := a.waitLoadBalancerIP()
+
+		defer close(stopCh)
+		defer close(ipCh)
+		go ctrl.Run(stopCh)
+
+		ip = <-ipCh
+
+		err := a.deleteIngress(a.config.Cluster.ProjectID)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	err = a.deleteNamespace()
@@ -310,48 +332,37 @@ func (a *applicationService) deleteIngress(projectID string) error {
 	return nil
 }
 
-func (a *applicationService) getGcpLoadBalancerIP(maxRetries int) (string, error) {
-	var ip string
+func (a *applicationService) waitLoadBalancerIP() (cache.Controller, chan string, chan struct{}) {
+	informer := cache.NewSharedIndexInformer(
+		&cache.ListWatch{
+			ListFunc: func(options meta_v1.ListOptions) (runtime.Object, error) {
+				return a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(options)
+			},
+			WatchFunc: func(options meta_v1.ListOptions) (watch.Interface, error) {
+				return a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).Watch(options)
+			},
+		},
+		&v1beta1.Ingress{},
+		0, // Skip resync
+		cache.Indexers{},
+	)
 
-	ingressList, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).List(meta_v1.ListOptions{})
+	stopCh := make(chan struct{})
+	ipCh := make(chan string, 1)
 
-	if err != nil {
-		return "", err
-	}
+	processWatch := func(obj interface{}) {
 
-	for _, ingress := range ingressList.Items {
-		if ingressType, ok := ingress.Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gce" {
-			ingressWait := ingress
+		if obj == nil {
+			return
+		}
 
-			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
-				ip = ingress.Status.LoadBalancer.Ingress[0].IP
-			}
-
-			if ip == "" {
-				for retries := 0; retries < maxRetries; retries++ {
-					ingressWait, err := a.clientSet.ExtensionsV1beta1().Ingresses(a.prefixedNamespace).Get(ingressWait.Name, meta_v1.GetOptions{})
-
-					if err != nil {
-						return "", err
-					}
-
-					if len(ingressWait.Status.LoadBalancer.Ingress) > 0 {
-						ip = ingressWait.Status.LoadBalancer.Ingress[0].IP
-						break
-					}
-					fmt.Fprint(writer, "Waiting for Loadbalancer IP\n")
-					clock.Sleep(time.Second * 5)
-				}
-			}
-
-			if ip != "" {
-				fmt.Fprintf(writer, "Loadbalancer IP : %s\n", ip)
-				return ip, nil
-			}
+		if ingressType, ok := obj.(*v1beta1.Ingress).Annotations["kubernetes.io/ingress.class"]; ok && ingressType == "gce" && len(obj.(*v1beta1.Ingress).Status.LoadBalancer.Ingress) > 0 {
+			ip := obj.(*v1beta1.Ingress).Status.LoadBalancer.Ingress[0].IP
+			ipCh <- ip
 		}
 	}
 
-	return "", errors.New("no Loadbalancer IP found")
+	return watchControllerCreator(a.clientSet, informer, processWatch), ipCh, stopCh
 }
 
 func (a *applicationService) getResourceRecordSets(domain string, cnames []string, ip string) []*dns.ResourceRecordSet {
