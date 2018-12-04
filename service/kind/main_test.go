@@ -12,7 +12,7 @@ import (
 	testingKube "kube-helper/testing"
 
 	"github.com/stretchr/testify/assert"
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -141,12 +141,12 @@ metadata:
   name: dummy`
 
 var deployment = `kind: Deployment
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 metadata:
   name: dummy`
 
 var deploymentWithAnnotation = `kind: Deployment
-apiVersion: apps/v1beta2
+apiVersion: apps/v1
 metadata:
   name: dummy
   annotations:

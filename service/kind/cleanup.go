@@ -126,7 +126,7 @@ func (k *kindService) cleanupServices(kubernetesNamespace string) error {
 }
 
 func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
-	list, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).List(metaV1.ListOptions{})
+	list, err := k.clientSet.AppsV1().Deployments(kubernetesNamespace).List(metaV1.ListOptions{})
 
 	if err != nil {
 		return err
@@ -139,7 +139,7 @@ func (k *kindService) cleanupDeployment(kubernetesNamespace string) error {
 	}
 
 	for _, name := range difference(names, k.usedKind.deployment) {
-		err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Delete(name, &metaV1.DeleteOptions{})
+		err = k.clientSet.AppsV1().Deployments(kubernetesNamespace).Delete(name, &metaV1.DeleteOptions{})
 		if err != nil {
 			return err
 		}

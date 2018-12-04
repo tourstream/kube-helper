@@ -9,7 +9,7 @@ import (
 
 	"kube-helper/model"
 
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -119,10 +119,10 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *a
 		return err
 	}
 
-	_, err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Get(deployment.Name, metaV1.GetOptions{})
+	_, err = k.clientSet.AppsV1().Deployments(kubernetesNamespace).Get(deployment.Name, metaV1.GetOptions{})
 
 	if err != nil {
-		_, err := k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Create(deployment)
+		_, err := k.clientSet.AppsV1().Deployments(kubernetesNamespace).Create(deployment)
 
 		if err != nil {
 			return err
@@ -135,7 +135,7 @@ func (k *kindService) upsertDeployment(kubernetesNamespace string, deployment *a
 		return nil
 	}
 
-	_, err = k.clientSet.AppsV1beta2().Deployments(kubernetesNamespace).Update(deployment)
+	_, err = k.clientSet.AppsV1().Deployments(kubernetesNamespace).Update(deployment)
 
 	if err != nil {
 		return err

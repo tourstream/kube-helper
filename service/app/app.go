@@ -126,7 +126,7 @@ func (a *applicationService) Apply() error {
 
 	if !update && a.config.Cluster.Type == "gcp" {
 
-		ip, err := a.getGcpLoadBalancerIP(60)
+		ip, err := a.getGcpLoadBalancerIP(120)
 
 		if err != nil {
 			return err

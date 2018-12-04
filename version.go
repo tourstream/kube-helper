@@ -4,4 +4,4 @@ package main
 const Name = "kube-helper"
 
 // Version contains the current version actual target kubernetes 1.9
-const Version = "3.1.0-dev"
+const Version = "3.0.2"
